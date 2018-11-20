@@ -33,6 +33,12 @@ module.exports.System = registerSystem('shadow', {
     this.setShadowMapEnabled(this.shadowMapEnabled);
   },
 
+  update: function (prevData) {
+    if (prevData.enabled !== this.data.enabled) {
+      this.setShadowMapEnabled(this.data.enabled);
+    }
+  },
+
   /**
    * Enables/disables the renderer shadow map.
    * @param {boolean} enabled
@@ -40,13 +46,10 @@ module.exports.System = registerSystem('shadow', {
   setShadowMapEnabled: function (enabled) {
     var renderer = this.sceneEl.renderer;
 
-    if (!this.data.enabled) {
-      return;
-    }
+    this.shadowMapEnabled = this.data.enabled && enabled;
 
-    this.shadowMapEnabled = enabled;
     if (renderer) {
-      renderer.shadowMap.enabled = enabled;
+      renderer.shadowMap.enabled = this.shadowMapEnabled;
     }
   }
 });
