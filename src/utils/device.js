@@ -1,10 +1,25 @@
 var vrDisplay;
 
-if (navigator.getVRDisplays) {
-  navigator.getVRDisplays().then(function (displays) {
-    vrDisplay = displays.length && displays[0];
+// Support both WebVR and WebXR APIs.
+if (navigator.xr) {
+  navigator.xr.requestDevice().then(function (device) {
+    device.supportsSession({immersive: true, exclusive: true}).then(function () {
+      var sceneEl = document.querySelector('a-scene');
+      vrDisplay = device;
+      if (sceneEl) { sceneEl.emit('displayconnected', {vrDisplay: vrDisplay}); }
+    });
   });
+} else {
+  if (navigator.getVRDisplays) {
+    navigator.getVRDisplays().then(function (displays) {
+      var sceneEl = document.querySelector('a-scene');
+      vrDisplay = displays.length && displays[0];
+      if (sceneEl) { sceneEl.emit('displayconnected', {vrDisplay: vrDisplay}); }
+    });
+  }
 }
+
+module.exports.isWebXRAvailable = navigator.xr !== undefined;
 
 function getVRDisplay () { return vrDisplay; }
 module.exports.getVRDisplay = getVRDisplay;
@@ -20,7 +35,7 @@ module.exports.checkHeadsetConnected = checkHeadsetConnected;
  */
 function checkHasPositionalTracking () {
   var vrDisplay = getVRDisplay();
-  if (isMobile() || isGearVR()) { return false; }
+  if (isMobile() || isGearVR() || isOculusGo()) { return false; }
   return vrDisplay && vrDisplay.capabilities.hasPosition;
 }
 module.exports.checkHasPositionalTracking = checkHasPositionalTracking;
@@ -38,6 +53,9 @@ var isMobile = (function () {
     }
     if (isIOS() || isTablet() || isR7()) {
       _isMobile = true;
+    }
+    if (isOculusGo()) {
+      _isMobile = false;
     }
   })(window.navigator.userAgent || window.navigator.vendor || window.opera);
 
@@ -107,7 +125,7 @@ module.exports.isNodeEnvironment = !module.exports.isBrowserEnvironment;
  */
 module.exports.PolyfillControls = function PolyfillControls (object) {
   var frameData;
-  var vrDisplay = window.webvrpolyfill.getPolyfillDisplays()[0];
+  var vrDisplay = window.webvrpolyfill && window.webvrpolyfill.getPolyfillDisplays()[0];
   if (window.VRFrameData) { frameData = new window.VRFrameData(); }
   this.update = function () {
     var pose;

@@ -1,6 +1,5 @@
 require('./animation');
 require('./camera');
-require('./collada-model');
 require('./cursor');
 require('./daydream-controls');
 require('./gearvr-controls');
@@ -24,8 +23,11 @@ require('./shadow');
 require('./sound');
 require('./text');
 require('./tracked-controls');
+require('./tracked-controls-webvr');
+require('./tracked-controls-webxr');
 require('./visible');
 require('./vive-controls');
+require('./vive-focus-controls');
 require('./wasd-controls');
 require('./windows-motion-controls');
 
@@ -36,7 +38,6 @@ require('./scene/inspector');
 require('./scene/fog');
 require('./scene/keyboard-shortcuts');
 require('./scene/pool');
-require('./scene/renderer');
 require('./scene/screenshot');
 require('./scene/stats');
 require('./scene/vr-mode-ui');

@@ -15,6 +15,7 @@ var initPostMessageAPI = require('./postMessage');
 var bind = utils.bind;
 var isIOS = utils.device.isIOS();
 var isMobile = utils.device.isMobile();
+var isWebXRAvailable = utils.device.isWebXRAvailable;
 var registerElement = re.registerElement;
 var warn = utils.debug('core:a-scene:warn');
 
@@ -39,6 +40,7 @@ module.exports.AScene = registerElement('a-scene', {
       value: function () {
         this.isIOS = isIOS;
         this.isMobile = isMobile;
+        this.hasWebXR = isWebXRAvailable;
         this.isScene = true;
         this.object3D = new THREE.Scene();
         var self = this;
@@ -254,21 +256,50 @@ module.exports.AScene = registerElement('a-scene', {
         var self = this;
         var vrDisplay;
         var vrManager = self.renderer.vr;
+
         // Don't enter VR if already in VR.
         if (this.is('vr-mode')) { return Promise.resolve('Already in VR.'); }
-        // Enter VR via WebVR API.
+
+        // Has VR.
         if (this.checkHeadsetConnected() || this.isMobile) {
           vrDisplay = utils.device.getVRDisplay();
           vrManager.setDevice(vrDisplay);
           vrManager.enabled = true;
-          if (!vrDisplay.isPresenting) {
-            return vrDisplay.requestPresent([{source: this.canvas}])
-                            .then(enterVRSuccess, enterVRFailure);
+
+          if (this.hasWebXR) {
+            // XR API.
+            if (this.xrSession) {
+              this.xrSession.removeEventListener('end', this.exitVRBound);
+            }
+            vrDisplay.requestSession({
+              immersive: true,
+              exclusive: true
+            }).then(function requestSuccess (xrSession) {
+              self.xrSession = xrSession;
+              vrManager.setSession(xrSession);
+              xrSession.addEventListener('end', self.exitVRBound);
+              xrSession.requestFrameOfReference('stage').then(function (frameOfReference) {
+                self.frameOfReference = frameOfReference;
+              });
+              enterVRSuccess();
+            });
+          } else {
+            // WebVR API.
+            if (vrDisplay.isPresenting) {
+              enterVRSuccess();
+              return Promise.resolve();
+            }
+            return vrDisplay.requestPresent([{source: this.canvas}]).then(
+              enterVRSuccess, enterVRFailure);
           }
+          return Promise.resolve();
         }
+
+        // No VR.
         enterVRSuccess();
         return Promise.resolve();
 
+        // Callback that happens on enter VR success or enter fullscreen (any API).
         function enterVRSuccess () {
           self.addState('vr-mode');
           self.emit('enter-vr', {target: self});
@@ -299,7 +330,7 @@ module.exports.AScene = registerElement('a-scene', {
       writable: true
     },
      /**
-     * Call `exitPresent` if WebVR or WebVR polyfill.
+     * Call `exitPresent` if WebVR / WebXR or WebVR polyfill.
      * Handle events, states, fullscreen styles.
      *
      * @returns {Promise}
@@ -308,18 +339,26 @@ module.exports.AScene = registerElement('a-scene', {
       value: function () {
         var self = this;
         var vrDisplay;
+        var vrManager = this.renderer.vr;
 
         // Don't exit VR if not in VR.
         if (!this.is('vr-mode')) { return Promise.resolve('Not in VR.'); }
 
-        exitFullscreen();
         // Handle exiting VR if not yet already and in a headset or polyfill.
         if (this.checkHeadsetConnected() || this.isMobile) {
-          this.renderer.vr.enabled = false;
+          vrManager.enabled = false;
           vrDisplay = utils.device.getVRDisplay();
-          if (vrDisplay.isPresenting) {
-            return vrDisplay.exitPresent().then(exitVRSuccess, exitVRFailure);
+          if (this.hasWebXR) {
+            this.xrSession.removeEventListener('end', this.exitVRBound);
+            this.xrSession.end();
+            vrManager.setSession(null);
+          } else {
+            if (vrDisplay.isPresenting) {
+              return vrDisplay.exitPresent().then(exitVRSuccess, exitVRFailure);
+            }
           }
+        } else {
+          exitFullscreen();
         }
 
         // Handle exiting VR in all other cases (2D fullscreen, external exit VR event).
@@ -510,13 +549,6 @@ module.exports.AScene = registerElement('a-scene', {
         var rendererConfig;
 
         rendererConfig = {alpha: true, antialias: !isMobile, canvas: this.canvas, logarithmicDepthBuffer: false};
-        if (this.hasAttribute('antialias')) {
-          rendererConfig.antialias = this.getAttribute('antialias') === 'true';
-        }
-
-        if (this.hasAttribute('logarithmicDepthBuffer')) {
-          rendererConfig.logarithmicDepthBuffer = this.getAttribute('logarithmicDepthBuffer') === 'true';
-        }
 
         this.maxCanvasSize = {height: 1920, width: 1920};
 
@@ -526,6 +558,10 @@ module.exports.AScene = registerElement('a-scene', {
 
           if (rendererAttr.antialias && rendererAttr.antialias !== 'auto') {
             rendererConfig.antialias = rendererAttr.antialias === 'true';
+          }
+
+          if (rendererAttr.logarithmicDepthBuffer && rendererAttr.logarithmicDepthBuffer !== 'auto') {
+            rendererConfig.logarithmicDepthBuffer = rendererAttr.logarithmicDepthBuffer === 'true';
           }
 
           this.maxCanvasSize = {
@@ -576,6 +612,7 @@ module.exports.AScene = registerElement('a-scene', {
             if (window.performance) { window.performance.mark('render-started'); }
             sceneEl.clock = new THREE.Clock();
             loadingScreen.remove();
+            sceneEl.renderer.setAnimationLoop(this.render);
             sceneEl.render();
             sceneEl.renderStarted = true;
             sceneEl.emit('renderstart');
@@ -656,15 +693,15 @@ module.exports.AScene = registerElement('a-scene', {
      * Renders with request animation frame.
      */
     render: {
-      value: function () {
+      value: function (time, frame) {
         var renderer = this.renderer;
 
+        this.frame = frame;
         this.delta = this.clock.getDelta() * 1000;
         this.time = this.clock.elapsedTime * 1000;
 
         if (this.isPlaying) { this.tick(this.time, this.delta); }
 
-        renderer.setAnimationLoop(this.render);
         renderer.render(this.object3D, this.camera, this.renderTarget);
       },
       writable: true

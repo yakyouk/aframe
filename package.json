@@ -21,6 +21,7 @@
     "prepush": "node scripts/testOnlyCheck.js",
     "prerelease": "node scripts/release.js 0.7.1 0.8.0",
     "start": "npm run dev",
+    "start:https": "cross-env SSL=true npm run dev",
     "test": "karma start ./tests/karma.conf.js",
     "test:docs": "node scripts/docsLint.js",
     "test:firefox": "npm test -- --browsers Firefox",
@@ -39,6 +40,7 @@
   "dependencies": {
     "animejs": "^2.2.0",
     "browserify-css": "^0.8.4",
+    "custom-event-polyfill": "^1.0.6",
     "debug": "ngokevin/debug#noTimestamp",
     "deep-assign": "^2.0.0",
     "document-register-element": "dmarcos/document-register-element#8ccc532b7f3744be954574caf3072a5fd260ca90",
@@ -48,7 +50,7 @@
     "present": "0.0.6",
     "promise-polyfill": "^3.1.0",
     "style-attr": "^1.0.2",
-    "three": "0.95.0",
+    "three": "dmarcos/three.js#webXRSupport",
     "three-bmfont-text": "^2.1.0",
     "webvr-polyfill": "^0.10.8"
   },

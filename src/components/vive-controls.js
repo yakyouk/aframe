@@ -54,6 +54,7 @@ module.exports.Component = registerComponent('vive-controls', {
     this.onButtonTouchStart = function (evt) { onButtonEvent(evt.detail.id, 'touchstart', self); };
     this.onAxisMoved = bind(this.onAxisMoved, this);
     this.previousButtonValues = {};
+    this.rendererSystem = this.el.sceneEl.systems.renderer;
 
     this.bindMethods();
   },
@@ -121,6 +122,7 @@ module.exports.Component = registerComponent('vive-controls', {
       idPrefix: GAMEPAD_ID_PREFIX,
       // Hand IDs: 0 = right, 1 = left, 2 = anything else.
       controller: data.hand === 'right' ? 0 : data.hand === 'left' ? 1 : 2,
+      hand: data.hand,
       orientationOffset: data.orientationOffset
     });
 
@@ -213,6 +215,7 @@ module.exports.Component = registerComponent('vive-controls', {
 
   setButtonColor: function (buttonName, color) {
     var buttonMeshes = this.buttonMeshes;
+    var rendererSystem = this.rendererSystem;
 
     if (!buttonMeshes) { return; }
 
@@ -220,8 +223,11 @@ module.exports.Component = registerComponent('vive-controls', {
     if (buttonName === 'grip') {
       buttonMeshes.grip.left.material.color.set(color);
       buttonMeshes.grip.right.material.color.set(color);
+      rendererSystem.applyColorCorrection(buttonMeshes.grip.left.material.color);
+      rendererSystem.applyColorCorrection(buttonMeshes.grip.right.material.color);
       return;
     }
     buttonMeshes[buttonName].material.color.set(color);
+    rendererSystem.applyColorCorrection(buttonMeshes[buttonName].material.color);
   }
 });

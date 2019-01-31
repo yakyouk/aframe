@@ -5,22 +5,32 @@ window.Promise = window.Promise || require('promise-polyfill');
 // Check before the polyfill runs.
 window.hasNativeWebVRImplementation = !!window.navigator.getVRDisplays ||
                                       !!window.navigator.getVRDevices;
+window.hasNativeWebXRImplementation = navigator.xr !== undefined;
 
-var isIOSOlderThan10 = require('./utils/isIOSOlderThan10');
-// Workaround for iOS Safari canvas sizing issues in stereo (webvr-polyfill/issues/102).
-// Only for iOS on versions older than 10.
-var bufferScale = isIOSOlderThan10(window.navigator.userAgent) ? 1 / window.devicePixelRatio : 1;
-var WebVRPolyfill = require('webvr-polyfill');
-var polyfillConfig = {
-  BUFFER_SCALE: bufferScale,
-  CARDBOARD_UI_DISABLED: true,
-  ROTATE_INSTRUCTIONS_DISABLED: true
-};
-
-window.webvrpolyfill = new WebVRPolyfill(polyfillConfig);
+// If native WebXR or WebVR are defined WebVRPolyfill does not initialize.
+if (!window.hasNativeWebXRImplementation && !window.hasNativeWebVRImplementation) {
+  var isIOSOlderThan10 = require('./utils/isIOSOlderThan10');
+  // Workaround for iOS Safari canvas sizing issues in stereo (webvr-polyfill/issues/102).
+  // Only for iOS on versions older than 10.
+  var bufferScale = isIOSOlderThan10(window.navigator.userAgent) ? 1 / window.devicePixelRatio : 1;
+  var WebVRPolyfill = require('webvr-polyfill');
+  var polyfillConfig = {
+    BUFFER_SCALE: bufferScale,
+    CARDBOARD_UI_DISABLED: true,
+    ROTATE_INSTRUCTIONS_DISABLED: true
+  };
+  window.webvrpolyfill = new WebVRPolyfill(polyfillConfig);
+}
 
 var utils = require('./utils/');
 var debug = utils.debug;
+
+if (utils.isIE11) {
+  // Polyfill `CustomEvent`.
+  require('custom-event-polyfill');
+  // Polyfill String.startsWith.
+  require('../vendor/starts-with-polyfill');
+}
 
 var error = debug('A-Frame:error');
 var warn = debug('A-Frame:warn');
@@ -79,7 +89,7 @@ require('./core/a-mixin');
 require('./extras/components/');
 require('./extras/primitives/');
 
-console.log('A-Frame Version: 0.8.2 (Date 2018-11-27, Commit #358c5da5)');
+console.log('A-Frame Version: 0.8.2 (Date 2019-01-31, Commit #abd1d51a)');
 console.log('three Version:', pkg.dependencies['three']);
 console.log('WebVR Polyfill Version:', pkg.dependencies['webvr-polyfill']);
 
