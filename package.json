@@ -3,7 +3,7 @@
   "version": "0.9.0",
   "description": "A web framework for building virtual reality experiences.",
   "homepage": "https://aframe.io/",
-  "main": "dist/aframe-master.js",
+  "main": "src/index.js",
   "scripts": {
     "browserify": "browserify src/index.js -s 'AFRAME' -p browserify-derequire",
     "build": "shx mkdir -p build/ && npm run browserify -- --debug -t [envify --INSPECTOR_VERSION dev] -o build/aframe.js",
@@ -51,7 +51,6 @@
     "promise-polyfill": "^3.1.0",
     "style-attr": "^1.0.2",
     "super-animejs": "^3.0.0",
-    "super-three": "^0.101.0",
     "three-bmfont-text": "^2.1.0",
     "webvr-polyfill": "^0.10.10"
   },
@@ -94,9 +93,13 @@
     "sinon": "^1.17.5",
     "sinon-chai": "2.8.0",
     "snazzy": "^5.0.0",
+    "three": "github:mozillareality/three.js#hubs/master",
     "too-wordy": "ngokevin/too-wordy",
     "uglifyjs": "^2.4.10",
     "write-good": "^0.9.1"
+  },
+  "peerDependencies": {
+    "three": "github:mozillareality/three.js#hubs/master"
   },
   "link": true,
   "browserify": {
