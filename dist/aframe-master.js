@@ -62092,9 +62092,11 @@ module.exports={
     "present": "0.0.6",
     "promise-polyfill": "^3.1.0",
     "style-attr": "^1.0.2",
-    "three": "github:mozillareality/three.js#hubs/three-v101-and-prs",
     "three-bmfont-text": "^2.1.0",
     "webvr-polyfill": "^0.10.10"
+  },
+  "peerDependencies": {
+    "three": "github:mozillareality/three.js#hubs/three-v101-and-prs"
   },
   "devDependencies": {
     "browserify": "^13.1.0",
@@ -62135,6 +62137,7 @@ module.exports={
     "sinon": "^1.17.5",
     "sinon-chai": "2.8.0",
     "snazzy": "^5.0.0",
+    "three": "github:mozillareality/three.js#hubs/three-v101-and-prs",
     "too-wordy": "ngokevin/too-wordy",
     "uglifyjs": "^2.4.10",
     "write-good": "^0.9.1"
@@ -75540,7 +75543,7 @@ _dereq_('./core/a-mixin');
 _dereq_('./extras/components/');
 _dereq_('./extras/primitives/');
 
-console.log('A-Frame Version: 0.8.2 (Date 2019-02-06, Commit #94bc48cc)');
+console.log('A-Frame Version: 0.8.2 (Date 2019-02-06, Commit #d271563e)');
 console.log('three Version:', pkg.dependencies['three']);
 console.log('WebVR Polyfill Version:', pkg.dependencies['webvr-polyfill']);
 
