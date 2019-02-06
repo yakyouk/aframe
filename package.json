@@ -50,9 +50,11 @@
     "present": "0.0.6",
     "promise-polyfill": "^3.1.0",
     "style-attr": "^1.0.2",
-    "three": "github:mozillareality/three.js#hubs/three-v101-and-prs",
     "three-bmfont-text": "^2.1.0",
     "webvr-polyfill": "^0.10.10"
+  },
+  "peerDependencies": {
+    "three": "github:mozillareality/three.js#hubs/three-v101-and-prs"
   },
   "devDependencies": {
     "browserify": "^13.1.0",
@@ -93,6 +95,7 @@
     "sinon": "^1.17.5",
     "sinon-chai": "2.8.0",
     "snazzy": "^5.0.0",
+    "three": "github:mozillareality/three.js#hubs/three-v101-and-prs",
     "too-wordy": "ngokevin/too-wordy",
     "uglifyjs": "^2.4.10",
     "write-good": "^0.9.1"
