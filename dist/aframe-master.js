@@ -4309,6 +4309,351 @@ module.exports = function createQuadElements(array, opt) {
     return indices
 }
 },{"an-array":1,"dtype":15,"is-buffer":21}],37:[function(_dereq_,module,exports){
+var createLayout = _dereq_('layout-bmfont-text')
+var inherits = _dereq_('inherits')
+var createIndices = _dereq_('quad-indices')
+var buffer = _dereq_('three-buffer-vertex-data')
+var assign = _dereq_('object-assign')
+
+var vertices = _dereq_('./lib/vertices')
+var utils = _dereq_('./lib/utils')
+
+var Base = THREE.BufferGeometry
+
+module.exports = function createTextGeometry (opt) {
+  return new TextGeometry(opt)
+}
+
+function TextGeometry (opt) {
+  Base.call(this)
+
+  if (typeof opt === 'string') {
+    opt = { text: opt }
+  }
+
+  // use these as default values for any subsequent
+  // calls to update()
+  this._opt = assign({}, opt)
+
+  // also do an initial setup...
+  if (opt) this.update(opt)
+}
+
+inherits(TextGeometry, Base)
+
+TextGeometry.prototype.update = function (opt) {
+  if (typeof opt === 'string') {
+    opt = { text: opt }
+  }
+
+  // use constructor defaults
+  opt = assign({}, this._opt, opt)
+
+  if (!opt.font) {
+    throw new TypeError('must specify a { font } in options')
+  }
+
+  this.layout = createLayout(opt)
+
+  // get vec2 texcoords
+  var flipY = opt.flipY !== false
+
+  // the desired BMFont data
+  var font = opt.font
+
+  // determine texture size from font file
+  var texWidth = font.common.scaleW
+  var texHeight = font.common.scaleH
+
+  // get visible glyphs
+  var glyphs = this.layout.glyphs.filter(function (glyph) {
+    var bitmap = glyph.data
+    return bitmap.width * bitmap.height > 0
+  })
+
+  // provide visible glyphs for convenience
+  this.visibleGlyphs = glyphs
+
+  // get common vertex data
+  var positions = vertices.positions(glyphs)
+  var uvs = vertices.uvs(glyphs, texWidth, texHeight, flipY)
+  var indices = createIndices({
+    clockwise: true,
+    type: 'uint16',
+    count: glyphs.length
+  })
+
+  // update vertex data
+  buffer.index(this, indices, 1, 'uint16')
+  buffer.attr(this, 'position', positions, 2)
+  buffer.attr(this, 'uv', uvs, 2)
+
+  // update multipage data
+  if (!opt.multipage && 'page' in this.attributes) {
+    // disable multipage rendering
+    this.removeAttribute('page')
+  } else if (opt.multipage) {
+    var pages = vertices.pages(glyphs)
+    // enable multipage rendering
+    buffer.attr(this, 'page', pages, 1)
+  }
+}
+
+TextGeometry.prototype.computeBoundingSphere = function () {
+  if (this.boundingSphere === null) {
+    this.boundingSphere = new THREE.Sphere()
+  }
+
+  var positions = this.attributes.position.array
+  var itemSize = this.attributes.position.itemSize
+  if (!positions || !itemSize || positions.length < 2) {
+    this.boundingSphere.radius = 0
+    this.boundingSphere.center.set(0, 0, 0)
+    return
+  }
+  utils.computeSphere(positions, this.boundingSphere)
+  if (isNaN(this.boundingSphere.radius)) {
+    console.error('THREE.BufferGeometry.computeBoundingSphere(): ' +
+      'Computed radius is NaN. The ' +
+      '"position" attribute is likely to have NaN values.')
+  }
+}
+
+TextGeometry.prototype.computeBoundingBox = function () {
+  if (this.boundingBox === null) {
+    this.boundingBox = new THREE.Box3()
+  }
+
+  var bbox = this.boundingBox
+  var positions = this.attributes.position.array
+  var itemSize = this.attributes.position.itemSize
+  if (!positions || !itemSize || positions.length < 2) {
+    bbox.makeEmpty()
+    return
+  }
+  utils.computeBox(positions, bbox)
+}
+
+},{"./lib/utils":38,"./lib/vertices":39,"inherits":20,"layout-bmfont-text":25,"object-assign":28,"quad-indices":36,"three-buffer-vertex-data":40}],38:[function(_dereq_,module,exports){
+var itemSize = 2
+var box = { min: [0, 0], max: [0, 0] }
+
+function bounds (positions) {
+  var count = positions.length / itemSize
+  box.min[0] = positions[0]
+  box.min[1] = positions[1]
+  box.max[0] = positions[0]
+  box.max[1] = positions[1]
+
+  for (var i = 0; i < count; i++) {
+    var x = positions[i * itemSize + 0]
+    var y = positions[i * itemSize + 1]
+    box.min[0] = Math.min(x, box.min[0])
+    box.min[1] = Math.min(y, box.min[1])
+    box.max[0] = Math.max(x, box.max[0])
+    box.max[1] = Math.max(y, box.max[1])
+  }
+}
+
+module.exports.computeBox = function (positions, output) {
+  bounds(positions)
+  output.min.set(box.min[0], box.min[1], 0)
+  output.max.set(box.max[0], box.max[1], 0)
+}
+
+module.exports.computeSphere = function (positions, output) {
+  bounds(positions)
+  var minX = box.min[0]
+  var minY = box.min[1]
+  var maxX = box.max[0]
+  var maxY = box.max[1]
+  var width = maxX - minX
+  var height = maxY - minY
+  var length = Math.sqrt(width * width + height * height)
+  output.center.set(minX + width / 2, minY + height / 2, 0)
+  output.radius = length / 2
+}
+
+},{}],39:[function(_dereq_,module,exports){
+module.exports.pages = function pages (glyphs) {
+  var pages = new Float32Array(glyphs.length * 4 * 1)
+  var i = 0
+  glyphs.forEach(function (glyph) {
+    var id = glyph.data.page || 0
+    pages[i++] = id
+    pages[i++] = id
+    pages[i++] = id
+    pages[i++] = id
+  })
+  return pages
+}
+
+module.exports.uvs = function uvs (glyphs, texWidth, texHeight, flipY) {
+  var uvs = new Float32Array(glyphs.length * 4 * 2)
+  var i = 0
+  glyphs.forEach(function (glyph) {
+    var bitmap = glyph.data
+    var bw = (bitmap.x + bitmap.width)
+    var bh = (bitmap.y + bitmap.height)
+
+    // top left position
+    var u0 = bitmap.x / texWidth
+    var v1 = bitmap.y / texHeight
+    var u1 = bw / texWidth
+    var v0 = bh / texHeight
+
+    if (flipY) {
+      v1 = (texHeight - bitmap.y) / texHeight
+      v0 = (texHeight - bh) / texHeight
+    }
+
+    // BL
+    uvs[i++] = u0
+    uvs[i++] = v1
+    // TL
+    uvs[i++] = u0
+    uvs[i++] = v0
+    // TR
+    uvs[i++] = u1
+    uvs[i++] = v0
+    // BR
+    uvs[i++] = u1
+    uvs[i++] = v1
+  })
+  return uvs
+}
+
+module.exports.positions = function positions (glyphs) {
+  var positions = new Float32Array(glyphs.length * 4 * 2)
+  var i = 0
+  glyphs.forEach(function (glyph) {
+    var bitmap = glyph.data
+
+    // bottom left position
+    var x = glyph.position[0] + bitmap.xoffset
+    var y = glyph.position[1] + bitmap.yoffset
+
+    // quad size
+    var w = bitmap.width
+    var h = bitmap.height
+
+    // BL
+    positions[i++] = x
+    positions[i++] = y
+    // TL
+    positions[i++] = x
+    positions[i++] = y + h
+    // TR
+    positions[i++] = x + w
+    positions[i++] = y + h
+    // BR
+    positions[i++] = x + w
+    positions[i++] = y
+  })
+  return positions
+}
+
+},{}],40:[function(_dereq_,module,exports){
+var flatten = _dereq_('flatten-vertex-data')
+var warned = false;
+
+module.exports.attr = setAttribute
+module.exports.index = setIndex
+
+function setIndex (geometry, data, itemSize, dtype) {
+  if (typeof itemSize !== 'number') itemSize = 1
+  if (typeof dtype !== 'string') dtype = 'uint16'
+
+  var isR69 = !geometry.index && typeof geometry.setIndex !== 'function'
+  var attrib = isR69 ? geometry.getAttribute('index') : geometry.index
+  var newAttrib = updateAttribute(attrib, data, itemSize, dtype)
+  if (newAttrib) {
+    if (isR69) geometry.addAttribute('index', newAttrib)
+    else geometry.index = newAttrib
+  }
+}
+
+function setAttribute (geometry, key, data, itemSize, dtype) {
+  if (typeof itemSize !== 'number') itemSize = 3
+  if (typeof dtype !== 'string') dtype = 'float32'
+  if (Array.isArray(data) &&
+    Array.isArray(data[0]) &&
+    data[0].length !== itemSize) {
+    throw new Error('Nested vertex array has unexpected size; expected ' +
+      itemSize + ' but found ' + data[0].length)
+  }
+
+  var attrib = geometry.getAttribute(key)
+  var newAttrib = updateAttribute(attrib, data, itemSize, dtype)
+  if (newAttrib) {
+    geometry.addAttribute(key, newAttrib)
+  }
+}
+
+function updateAttribute (attrib, data, itemSize, dtype) {
+  data = data || []
+  if (!attrib || rebuildAttribute(attrib, data, itemSize)) {
+    // create a new array with desired type
+    data = flatten(data, dtype)
+
+    var needsNewBuffer = attrib && typeof attrib.setArray !== 'function'
+    if (!attrib || needsNewBuffer) {
+      // We are on an old version of ThreeJS which can't
+      // support growing / shrinking buffers, so we need
+      // to build a new buffer
+      if (needsNewBuffer && !warned) {
+        warned = true
+        console.warn([
+          'A WebGL buffer is being updated with a new size or itemSize, ',
+          'however this version of ThreeJS only supports fixed-size buffers.',
+          '\nThe old buffer may still be kept in memory.\n',
+          'To avoid memory leaks, it is recommended that you dispose ',
+          'your geometries and create new ones, or update to ThreeJS r82 or newer.\n',
+          'See here for discussion:\n',
+          'https://github.com/mrdoob/three.js/pull/9631'
+        ].join(''))
+      }
+
+      // Build a new attribute
+      attrib = new THREE.BufferAttribute(data, itemSize);
+    }
+
+    attrib.itemSize = itemSize
+    attrib.needsUpdate = true
+
+    // New versions of ThreeJS suggest using setArray
+    // to change the data. It will use bufferData internally,
+    // so you can change the array size without any issues
+    if (typeof attrib.setArray === 'function') {
+      attrib.setArray(data)
+    }
+
+    return attrib
+  } else {
+    // copy data into the existing array
+    flatten(data, attrib.array)
+    attrib.needsUpdate = true
+    return null
+  }
+}
+
+// Test whether the attribute needs to be re-created,
+// returns false if we can re-use it as-is.
+function rebuildAttribute (attrib, data, itemSize) {
+  if (attrib.itemSize !== itemSize) return true
+  if (!attrib.array) return true
+  var attribLength = attrib.array.length
+  if (Array.isArray(data) && Array.isArray(data[0])) {
+    // [ [ x, y, z ] ]
+    return attribLength !== data.length * itemSize
+  } else {
+    // [ x, y, z ]
+    return attribLength !== data.length
+  }
+  return false
+}
+
+},{"flatten-vertex-data":16}],41:[function(_dereq_,module,exports){
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
@@ -24468,7 +24813,7 @@ module.exports = function createQuadElements(array, opt) {
 
 			}
 
-			if ( internalFormat === 33325 || internalFormat === 33326 ||
+			if ( internalFormat === 33325 || internalFormat === 33326 ||
 				internalFormat === 34842 || internalFormat === 34836 ) {
 
 				extensions.get( 'EXT_color_buffer_float' );
@@ -52360,7 +52705,7 @@ module.exports = function createQuadElements(array, opt) {
 
 })));
 
-},{}],38:[function(_dereq_,module,exports){
+},{}],42:[function(_dereq_,module,exports){
 // Copyright 2016 The Draco Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -52883,7 +53228,7 @@ THREE.DRACOLoader._loadArrayBuffer = function ( src ) {
   });
 };
 
-},{}],39:[function(_dereq_,module,exports){
+},{}],43:[function(_dereq_,module,exports){
 /**
  * @author Rich Tibbett / https://github.com/richtr
  * @author mrdoob / http://mrdoob.com/
@@ -52908,6 +53253,52 @@ THREE.GLTFLoader = ( function () {
 		crossOrigin: 'anonymous',
 
 		load: function ( url, onLoad, onProgress, onError ) {
+
+			this._load( url, onLoad, onProgress, onError, false );
+
+		},
+
+		setCrossOrigin: function ( value ) {
+
+			this.crossOrigin = value;
+			return this;
+
+		},
+
+		setPath: function ( value ) {
+
+			this.path = value;
+			return this;
+
+		},
+
+		setResourcePath: function ( value ) {
+
+			this.resourcePath = value;
+			return this;
+
+		},
+
+		setDRACOLoader: function ( dracoLoader ) {
+
+			this.dracoLoader = dracoLoader;
+			return this;
+
+		},
+
+		parse: function ( data, path, onLoad, onError ) {
+
+			this._parse( data, path, onLoad, onError, false );
+
+		},
+
+		createParser: function ( url, onLoad, onProgress, onError ) {
+
+			this._load( url, onLoad, onProgress, onError, true );
+
+		},
+
+		_load: function ( url, onLoad, onProgress, onError, parserOnly ) {
 
 			var scope = this;
 
@@ -52958,13 +53349,13 @@ THREE.GLTFLoader = ( function () {
 
 				try {
 
-					scope.parse( data, resourcePath, function ( gltf ) {
+					scope._parse( data, resourcePath, function ( gltf ) {
 
 						onLoad( gltf );
 
 						scope.manager.itemEnd( url );
 
-					}, _onError );
+					}, _onError, parserOnly );
 
 				} catch ( e ) {
 
@@ -52976,35 +53367,7 @@ THREE.GLTFLoader = ( function () {
 
 		},
 
-		setCrossOrigin: function ( value ) {
-
-			this.crossOrigin = value;
-			return this;
-
-		},
-
-		setPath: function ( value ) {
-
-			this.path = value;
-			return this;
-
-		},
-
-		setResourcePath: function ( value ) {
-
-			this.resourcePath = value;
-			return this;
-
-		},
-
-		setDRACOLoader: function ( dracoLoader ) {
-
-			this.dracoLoader = dracoLoader;
-			return this;
-
-		},
-
-		parse: function ( data, path, onLoad, onError ) {
+		_parse: function ( data, path, onLoad, onError, parserOnly ) {
 
 			var content;
 			var extensions = {};
@@ -53104,6 +53467,14 @@ THREE.GLTFLoader = ( function () {
 
 			} );
 
+			if ( parserOnly ) {
+
+				parser.markDefs();
+				onLoad( parser );
+				return;
+
+			}
+
 			parser.parse( function ( scene, scenes, cameras, animations, json ) {
 
 				var glTF = {
@@ -53112,7 +53483,6 @@ THREE.GLTFLoader = ( function () {
 					cameras: cameras,
 					animations: animations,
 					asset: json.asset,
-					parser: parser,
 					userData: {}
 				};
 
@@ -56284,7 +56654,7 @@ THREE.GLTFLoader = ( function () {
 
 } )();
 
-},{}],40:[function(_dereq_,module,exports){
+},{}],44:[function(_dereq_,module,exports){
 /**
  * Loads a Wavefront .mtl file specifying materials
  *
@@ -56869,7 +57239,7 @@ THREE.MTLLoader.MaterialCreator.prototype = {
 
 };
 
-},{}],41:[function(_dereq_,module,exports){
+},{}],45:[function(_dereq_,module,exports){
 /**
  * @author mrdoob / http://mrdoob.com/
  */
@@ -57668,352 +58038,7 @@ THREE.OBJLoader = ( function () {
 
 } )();
 
-},{}],42:[function(_dereq_,module,exports){
-var createLayout = _dereq_('layout-bmfont-text')
-var inherits = _dereq_('inherits')
-var createIndices = _dereq_('quad-indices')
-var buffer = _dereq_('three-buffer-vertex-data')
-var assign = _dereq_('object-assign')
-
-var vertices = _dereq_('./lib/vertices')
-var utils = _dereq_('./lib/utils')
-
-var Base = THREE.BufferGeometry
-
-module.exports = function createTextGeometry (opt) {
-  return new TextGeometry(opt)
-}
-
-function TextGeometry (opt) {
-  Base.call(this)
-
-  if (typeof opt === 'string') {
-    opt = { text: opt }
-  }
-
-  // use these as default values for any subsequent
-  // calls to update()
-  this._opt = assign({}, opt)
-
-  // also do an initial setup...
-  if (opt) this.update(opt)
-}
-
-inherits(TextGeometry, Base)
-
-TextGeometry.prototype.update = function (opt) {
-  if (typeof opt === 'string') {
-    opt = { text: opt }
-  }
-
-  // use constructor defaults
-  opt = assign({}, this._opt, opt)
-
-  if (!opt.font) {
-    throw new TypeError('must specify a { font } in options')
-  }
-
-  this.layout = createLayout(opt)
-
-  // get vec2 texcoords
-  var flipY = opt.flipY !== false
-
-  // the desired BMFont data
-  var font = opt.font
-
-  // determine texture size from font file
-  var texWidth = font.common.scaleW
-  var texHeight = font.common.scaleH
-
-  // get visible glyphs
-  var glyphs = this.layout.glyphs.filter(function (glyph) {
-    var bitmap = glyph.data
-    return bitmap.width * bitmap.height > 0
-  })
-
-  // provide visible glyphs for convenience
-  this.visibleGlyphs = glyphs
-
-  // get common vertex data
-  var positions = vertices.positions(glyphs)
-  var uvs = vertices.uvs(glyphs, texWidth, texHeight, flipY)
-  var indices = createIndices({
-    clockwise: true,
-    type: 'uint16',
-    count: glyphs.length
-  })
-
-  // update vertex data
-  buffer.index(this, indices, 1, 'uint16')
-  buffer.attr(this, 'position', positions, 2)
-  buffer.attr(this, 'uv', uvs, 2)
-
-  // update multipage data
-  if (!opt.multipage && 'page' in this.attributes) {
-    // disable multipage rendering
-    this.removeAttribute('page')
-  } else if (opt.multipage) {
-    var pages = vertices.pages(glyphs)
-    // enable multipage rendering
-    buffer.attr(this, 'page', pages, 1)
-  }
-}
-
-TextGeometry.prototype.computeBoundingSphere = function () {
-  if (this.boundingSphere === null) {
-    this.boundingSphere = new THREE.Sphere()
-  }
-
-  var positions = this.attributes.position.array
-  var itemSize = this.attributes.position.itemSize
-  if (!positions || !itemSize || positions.length < 2) {
-    this.boundingSphere.radius = 0
-    this.boundingSphere.center.set(0, 0, 0)
-    return
-  }
-  utils.computeSphere(positions, this.boundingSphere)
-  if (isNaN(this.boundingSphere.radius)) {
-    console.error('THREE.BufferGeometry.computeBoundingSphere(): ' +
-      'Computed radius is NaN. The ' +
-      '"position" attribute is likely to have NaN values.')
-  }
-}
-
-TextGeometry.prototype.computeBoundingBox = function () {
-  if (this.boundingBox === null) {
-    this.boundingBox = new THREE.Box3()
-  }
-
-  var bbox = this.boundingBox
-  var positions = this.attributes.position.array
-  var itemSize = this.attributes.position.itemSize
-  if (!positions || !itemSize || positions.length < 2) {
-    bbox.makeEmpty()
-    return
-  }
-  utils.computeBox(positions, bbox)
-}
-
-},{"./lib/utils":43,"./lib/vertices":44,"inherits":20,"layout-bmfont-text":25,"object-assign":28,"quad-indices":36,"three-buffer-vertex-data":45}],43:[function(_dereq_,module,exports){
-var itemSize = 2
-var box = { min: [0, 0], max: [0, 0] }
-
-function bounds (positions) {
-  var count = positions.length / itemSize
-  box.min[0] = positions[0]
-  box.min[1] = positions[1]
-  box.max[0] = positions[0]
-  box.max[1] = positions[1]
-
-  for (var i = 0; i < count; i++) {
-    var x = positions[i * itemSize + 0]
-    var y = positions[i * itemSize + 1]
-    box.min[0] = Math.min(x, box.min[0])
-    box.min[1] = Math.min(y, box.min[1])
-    box.max[0] = Math.max(x, box.max[0])
-    box.max[1] = Math.max(y, box.max[1])
-  }
-}
-
-module.exports.computeBox = function (positions, output) {
-  bounds(positions)
-  output.min.set(box.min[0], box.min[1], 0)
-  output.max.set(box.max[0], box.max[1], 0)
-}
-
-module.exports.computeSphere = function (positions, output) {
-  bounds(positions)
-  var minX = box.min[0]
-  var minY = box.min[1]
-  var maxX = box.max[0]
-  var maxY = box.max[1]
-  var width = maxX - minX
-  var height = maxY - minY
-  var length = Math.sqrt(width * width + height * height)
-  output.center.set(minX + width / 2, minY + height / 2, 0)
-  output.radius = length / 2
-}
-
-},{}],44:[function(_dereq_,module,exports){
-module.exports.pages = function pages (glyphs) {
-  var pages = new Float32Array(glyphs.length * 4 * 1)
-  var i = 0
-  glyphs.forEach(function (glyph) {
-    var id = glyph.data.page || 0
-    pages[i++] = id
-    pages[i++] = id
-    pages[i++] = id
-    pages[i++] = id
-  })
-  return pages
-}
-
-module.exports.uvs = function uvs (glyphs, texWidth, texHeight, flipY) {
-  var uvs = new Float32Array(glyphs.length * 4 * 2)
-  var i = 0
-  glyphs.forEach(function (glyph) {
-    var bitmap = glyph.data
-    var bw = (bitmap.x + bitmap.width)
-    var bh = (bitmap.y + bitmap.height)
-
-    // top left position
-    var u0 = bitmap.x / texWidth
-    var v1 = bitmap.y / texHeight
-    var u1 = bw / texWidth
-    var v0 = bh / texHeight
-
-    if (flipY) {
-      v1 = (texHeight - bitmap.y) / texHeight
-      v0 = (texHeight - bh) / texHeight
-    }
-
-    // BL
-    uvs[i++] = u0
-    uvs[i++] = v1
-    // TL
-    uvs[i++] = u0
-    uvs[i++] = v0
-    // TR
-    uvs[i++] = u1
-    uvs[i++] = v0
-    // BR
-    uvs[i++] = u1
-    uvs[i++] = v1
-  })
-  return uvs
-}
-
-module.exports.positions = function positions (glyphs) {
-  var positions = new Float32Array(glyphs.length * 4 * 2)
-  var i = 0
-  glyphs.forEach(function (glyph) {
-    var bitmap = glyph.data
-
-    // bottom left position
-    var x = glyph.position[0] + bitmap.xoffset
-    var y = glyph.position[1] + bitmap.yoffset
-
-    // quad size
-    var w = bitmap.width
-    var h = bitmap.height
-
-    // BL
-    positions[i++] = x
-    positions[i++] = y
-    // TL
-    positions[i++] = x
-    positions[i++] = y + h
-    // TR
-    positions[i++] = x + w
-    positions[i++] = y + h
-    // BR
-    positions[i++] = x + w
-    positions[i++] = y
-  })
-  return positions
-}
-
-},{}],45:[function(_dereq_,module,exports){
-var flatten = _dereq_('flatten-vertex-data')
-var warned = false;
-
-module.exports.attr = setAttribute
-module.exports.index = setIndex
-
-function setIndex (geometry, data, itemSize, dtype) {
-  if (typeof itemSize !== 'number') itemSize = 1
-  if (typeof dtype !== 'string') dtype = 'uint16'
-
-  var isR69 = !geometry.index && typeof geometry.setIndex !== 'function'
-  var attrib = isR69 ? geometry.getAttribute('index') : geometry.index
-  var newAttrib = updateAttribute(attrib, data, itemSize, dtype)
-  if (newAttrib) {
-    if (isR69) geometry.addAttribute('index', newAttrib)
-    else geometry.index = newAttrib
-  }
-}
-
-function setAttribute (geometry, key, data, itemSize, dtype) {
-  if (typeof itemSize !== 'number') itemSize = 3
-  if (typeof dtype !== 'string') dtype = 'float32'
-  if (Array.isArray(data) &&
-    Array.isArray(data[0]) &&
-    data[0].length !== itemSize) {
-    throw new Error('Nested vertex array has unexpected size; expected ' +
-      itemSize + ' but found ' + data[0].length)
-  }
-
-  var attrib = geometry.getAttribute(key)
-  var newAttrib = updateAttribute(attrib, data, itemSize, dtype)
-  if (newAttrib) {
-    geometry.addAttribute(key, newAttrib)
-  }
-}
-
-function updateAttribute (attrib, data, itemSize, dtype) {
-  data = data || []
-  if (!attrib || rebuildAttribute(attrib, data, itemSize)) {
-    // create a new array with desired type
-    data = flatten(data, dtype)
-
-    var needsNewBuffer = attrib && typeof attrib.setArray !== 'function'
-    if (!attrib || needsNewBuffer) {
-      // We are on an old version of ThreeJS which can't
-      // support growing / shrinking buffers, so we need
-      // to build a new buffer
-      if (needsNewBuffer && !warned) {
-        warned = true
-        console.warn([
-          'A WebGL buffer is being updated with a new size or itemSize, ',
-          'however this version of ThreeJS only supports fixed-size buffers.',
-          '\nThe old buffer may still be kept in memory.\n',
-          'To avoid memory leaks, it is recommended that you dispose ',
-          'your geometries and create new ones, or update to ThreeJS r82 or newer.\n',
-          'See here for discussion:\n',
-          'https://github.com/mrdoob/three.js/pull/9631'
-        ].join(''))
-      }
-
-      // Build a new attribute
-      attrib = new THREE.BufferAttribute(data, itemSize);
-    }
-
-    attrib.itemSize = itemSize
-    attrib.needsUpdate = true
-
-    // New versions of ThreeJS suggest using setArray
-    // to change the data. It will use bufferData internally,
-    // so you can change the array size without any issues
-    if (typeof attrib.setArray === 'function') {
-      attrib.setArray(data)
-    }
-
-    return attrib
-  } else {
-    // copy data into the existing array
-    flatten(data, attrib.array)
-    attrib.needsUpdate = true
-    return null
-  }
-}
-
-// Test whether the attribute needs to be re-created,
-// returns false if we can re-use it as-is.
-function rebuildAttribute (attrib, data, itemSize) {
-  if (attrib.itemSize !== itemSize) return true
-  if (!attrib.array) return true
-  var attribLength = attrib.array.length
-  if (Array.isArray(data) && Array.isArray(data[0])) {
-    // [ [ x, y, z ] ]
-    return attribLength !== data.length * itemSize
-  } else {
-    // [ x, y, z ]
-    return attribLength !== data.length
-  }
-  return false
-}
-
-},{"flatten-vertex-data":16}],46:[function(_dereq_,module,exports){
+},{}],46:[function(_dereq_,module,exports){
 (function (setImmediate,clearImmediate){
 var nextTick = _dereq_('process/browser.js').nextTick;
 var apply = Function.prototype.apply;
@@ -62020,7 +62045,7 @@ module.exports={
   "version": "0.8.2",
   "description": "A web framework for building virtual reality experiences.",
   "homepage": "https://aframe.io/",
-  "main": "dist/aframe-master.js",
+  "main": "src/index.js",
   "scripts": {
     "browserify": "browserify src/index.js -s 'AFRAME' -p browserify-derequire",
     "build": "shx mkdir -p build/ && npm run browserify -- --debug -t [envify --INSPECTOR_VERSION dev] -o build/aframe.js",
@@ -62067,7 +62092,7 @@ module.exports={
     "present": "0.0.6",
     "promise-polyfill": "^3.1.0",
     "style-attr": "^1.0.2",
-    "super-three": "^0.101.0",
+    "three": "github:mozillareality/three.js#hubs/three-v101-and-prs",
     "three-bmfont-text": "^2.1.0",
     "webvr-polyfill": "^0.10.10"
   },
@@ -68423,7 +68448,7 @@ function PromiseCache () {
   };
 }
 
-},{"../core/component":106,"../core/shader":116,"../lib/three":154,"../utils/":179,"load-bmfont":26,"three-bmfont-text":42}],90:[function(_dereq_,module,exports){
+},{"../core/component":106,"../core/shader":116,"../lib/three":154,"../utils/":179,"load-bmfont":26,"three-bmfont-text":37}],90:[function(_dereq_,module,exports){
 var registerComponent = _dereq_('../core/component').registerComponent;
 var controllerUtils = _dereq_('../utils/tracked-controls');
 var DEFAULT_CAMERA_HEIGHT = _dereq_('../constants').DEFAULT_CAMERA_HEIGHT;
@@ -75515,7 +75540,7 @@ _dereq_('./core/a-mixin');
 _dereq_('./extras/components/');
 _dereq_('./extras/primitives/');
 
-console.log('A-Frame Version: 0.8.2 (Date 2019-02-05, Commit #4f8683e3)');
+console.log('A-Frame Version: 0.8.2 (Date 2019-02-06, Commit #94bc48cc)');
 console.log('three Version:', pkg.dependencies['three']);
 console.log('WebVR Polyfill Version:', pkg.dependencies['webvr-polyfill']);
 
@@ -75605,7 +75630,7 @@ if (typeof module === 'object') {
 
 },{}],154:[function(_dereq_,module,exports){
 (function (global){
-var THREE = global.THREE = _dereq_('super-three');
+var THREE = global.THREE = _dereq_('three');
 
 // Allow cross-origin images to be loaded.
 
@@ -75626,10 +75651,10 @@ if (THREE.Cache) {
 }
 
 // TODO: Eventually include these only if they are needed by a component.
-_dereq_('super-three/examples/js/loaders/DRACOLoader');  // THREE.DRACOLoader
-_dereq_('super-three/examples/js/loaders/GLTFLoader');  // THREE.GLTFLoader
-_dereq_('super-three/examples/js/loaders/OBJLoader');  // THREE.OBJLoader
-_dereq_('super-three/examples/js/loaders/MTLLoader');  // THREE.MTLLoader
+_dereq_('three/examples/js/loaders/DRACOLoader');  // THREE.DRACOLoader
+_dereq_('three/examples/js/loaders/GLTFLoader');  // THREE.GLTFLoader
+_dereq_('three/examples/js/loaders/OBJLoader');  // THREE.OBJLoader
+_dereq_('three/examples/js/loaders/MTLLoader');  // THREE.MTLLoader
 
 THREE.DRACOLoader.prototype.crossOrigin = 'anonymous';
 THREE.GLTFLoader.prototype.crossOrigin = 'anonymous';
@@ -75640,7 +75665,7 @@ module.exports = THREE;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 
-},{"super-three":37,"super-three/examples/js/loaders/DRACOLoader":38,"super-three/examples/js/loaders/GLTFLoader":39,"super-three/examples/js/loaders/MTLLoader":40,"super-three/examples/js/loaders/OBJLoader":41}],155:[function(_dereq_,module,exports){
+},{"three":41,"three/examples/js/loaders/DRACOLoader":42,"three/examples/js/loaders/GLTFLoader":43,"three/examples/js/loaders/MTLLoader":44,"three/examples/js/loaders/OBJLoader":45}],155:[function(_dereq_,module,exports){
 var registerShader = _dereq_('../core/shader').registerShader;
 var THREE = _dereq_('../lib/three');
 var utils = _dereq_('../utils/');
