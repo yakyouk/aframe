@@ -62042,7 +62042,7 @@ function extend() {
 },{}],54:[function(_dereq_,module,exports){
 module.exports={
   "name": "aframe",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "description": "A web framework for building virtual reality experiences.",
   "homepage": "https://aframe.io/",
   "main": "src/index.js",
@@ -62061,7 +62061,7 @@ module.exports={
     "lint:fix": "semistandard --fix",
     "precommit": "npm run lint",
     "prepush": "node scripts/testOnlyCheck.js",
-    "prerelease": "node scripts/release.js 0.7.1 0.8.0",
+    "prerelease": "node scripts/release.js 0.8.2 0.9.0",
     "start": "npm run dev",
     "start:https": "cross-env SSL=true npm run dev",
     "test": "karma start ./tests/karma.conf.js",
@@ -63133,6 +63133,7 @@ module.exports.Component = registerComponent('cursor', {
    *   in case user mousedowned one entity, dragged to another, and mouseupped.
    */
   onCursorUp: function (evt) {
+    var data = this.data;
     this.twoWayEmit(EVENTS.MOUSEUP);
 
     // If intersected entity has changed since the cursorDown, still emit mouseUp on the
@@ -63142,7 +63143,8 @@ module.exports.Component = registerComponent('cursor', {
       this.cursorDownEl.emit(EVENTS.MOUSEUP, this.intersectedEventDetail);
     }
 
-    if (!this.data.fuse && this.intersectedEl && this.cursorDownEl === this.intersectedEl) {
+    if ((!data.fuse || data.rayOrigin === 'mouse') &&
+        this.intersectedEl && this.cursorDownEl === this.intersectedEl) {
       this.twoWayEmit(EVENTS.CLICK);
     }
 
@@ -71871,7 +71873,8 @@ var Component = module.exports.Component = function (el, attrValue, id) {
   this.initialized = false;
   this.isSingleProperty = isSingleProp(this.schema);
   this.isSinglePropertyObject = this.isSingleProperty &&
-                                isObject(parseProperty(undefined, this.schema));
+                                isObject(parseProperty(undefined, this.schema)) &&
+                                !(this.schema.default instanceof window.HTMLElement);
   this.isObjectBased = !this.isSingleProperty || this.isSinglePropertyObject;
   this.el.components[this.attrName] = this;
   this.objectPool = objectPools[this.name];
@@ -72006,7 +72009,7 @@ Component.prototype = {
       return;
     }
 
-    if (value instanceof Object) {
+    if (value instanceof Object && !(value instanceof window.HTMLElement)) {
       // If value is an object, copy it to our pooled newAttrValue object to use to update
       // the attrValue.
       tempObject = this.objectPool.use();
@@ -72576,11 +72579,12 @@ function wrapRemove (removeMethod) {
 }
 
 function isObject (value) {
-  return value && value.constructor === Object;
+  return value && value.constructor === Object && !(value instanceof window.HTMLElement);
 }
 
 function isObjectOrArray (value) {
-  return value && (value.constructor === Object || value.constructor === Array);
+  return value && (value.constructor === Object || value.constructor === Array) &&
+         !(value instanceof window.HTMLElement);
 }
 
 },{"../utils/":179,"./scene/scenes":113,"./schema":115,"./system":117}],107:[function(_dereq_,module,exports){
@@ -72926,6 +72930,7 @@ module.exports.AScene = registerElement('a-scene', {
         this.isIOS = isIOS;
         this.isMobile = isMobile;
         this.hasWebXR = isWebXRAvailable;
+        this.highRefreshRate = false;
         this.isScene = true;
         this.object3D = new THREE.Scene();
         var self = this;
@@ -73174,8 +73179,10 @@ module.exports.AScene = registerElement('a-scene', {
               enterVRSuccess();
               return Promise.resolve();
             }
-            return vrDisplay.requestPresent([{source: this.canvas}]).then(
-              enterVRSuccess, enterVRFailure);
+            return vrDisplay.requestPresent([{
+              source: this.canvas,
+              attributes: {highRefreshRate: this.highRefreshRate}
+            }]).then(enterVRSuccess, enterVRFailure);
           }
           return Promise.resolve();
         }
@@ -75543,7 +75550,7 @@ _dereq_('./core/a-mixin');
 _dereq_('./extras/components/');
 _dereq_('./extras/primitives/');
 
-console.log('A-Frame Version: 0.8.2 (Date 2019-02-06, Commit #d271563e)');
+console.log('A-Frame Version: 0.9.0 (Date 2019-02-08, Commit #5c433318)');
 console.log('three Version:', pkg.dependencies['three']);
 console.log('WebVR Polyfill Version:', pkg.dependencies['webvr-polyfill']);
 
@@ -77108,6 +77115,7 @@ var warn = debug('components:renderer:warn');
 module.exports.System = registerSystem('renderer', {
   schema: {
     antialias: {default: 'auto', oneOf: ['true', 'false', 'auto']},
+    highRefreshRate: {default: false},
     logarithmicDepthBuffer: {default: 'auto', oneOf: ['true', 'false', 'auto']},
     maxCanvasWidth: {default: 1920},
     maxCanvasHeight: {default: 1920},
@@ -77125,6 +77133,7 @@ module.exports.System = registerSystem('renderer', {
 
     renderer.sortObjects = data.sortObjects;
     renderer.physicallyCorrectLights = data.physicallyCorrectLights;
+    sceneEl.highRefreshRate = data.highRefreshRate;
 
     if (data.colorManagement || data.gammaOutput) {
       renderer.gammaOutput = true;
@@ -77358,10 +77367,10 @@ function parse (value, defaultVec) {
     y = value.y === undefined ? defaultVec && defaultVec.y : value.y;
     z = value.z === undefined ? defaultVec && defaultVec.z : value.z;
     w = value.w === undefined ? defaultVec && defaultVec.w : value.w;
-    if (x !== undefined) { value.x = parseIfString(x); }
-    if (y !== undefined) { value.y = parseIfString(y); }
-    if (z !== undefined) { value.z = parseIfString(z); }
-    if (w !== undefined) { value.w = parseIfString(w); }
+    if (x !== undefined && x !== null) { value.x = parseIfString(x); }
+    if (y !== undefined && y !== null) { value.y = parseIfString(y); }
+    if (z !== undefined && z !== null) { value.z = parseIfString(z); }
+    if (w !== undefined && w !== null) { value.w = parseIfString(w); }
     return value;
   }
 
@@ -77416,7 +77425,7 @@ module.exports.isCoordinate = function (value) {
 };
 
 function parseIfString (val) {
-  if (val.constructor === String) {
+  if (val !== null && val !== undefined && val.constructor === String) {
     return parseFloat(val, 10);
   }
   return val;
