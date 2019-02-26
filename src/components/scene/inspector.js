@@ -1,21 +1,10 @@
 /* global AFRAME */
 var AFRAME_INJECTED = require('../../constants').AFRAME_INJECTED;
-var pkg = require('../../../package');
 var registerComponent = require('../../core/component').registerComponent;
 var utils = require('../../utils/');
 
-/**
- * 0.4.2 to 0.4.x
- * Will need to update this when A-Frame goes to 1.x.x.
- */
-function getFuzzyPatchVersion (version) {
-  var split = version.split('.');
-  split[2] = 'x';
-  return split.join('.');
-}
-
 var INSPECTOR_DEV_URL = 'https://aframe.io/aframe-inspector/dist/aframe-inspector.js';
-var INSPECTOR_RELEASE_URL = 'https://unpkg.com/aframe-inspector@' + getFuzzyPatchVersion(pkg.version) + '/dist/aframe-inspector.min.js';
+var INSPECTOR_RELEASE_URL = 'https://unpkg.com/aframe-inspector@0.9.0/dist/aframe-inspector.min.js';
 var INSPECTOR_URL = process.env.INSPECTOR_VERSION === 'dev' ? INSPECTOR_DEV_URL : INSPECTOR_RELEASE_URL;
 var LOADING_MESSAGE = 'Loading Inspector';
 var LOADING_ERROR_MESSAGE = 'Error loading Inspector';

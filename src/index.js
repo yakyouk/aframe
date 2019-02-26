@@ -1,6 +1,3 @@
-// Polyfill `Promise`.
-window.Promise = window.Promise || require('promise-polyfill');
-
 // WebVR polyfill
 // Check before the polyfill runs.
 window.hasNativeWebVRImplementation = !!window.navigator.getVRDisplays ||
@@ -24,13 +21,6 @@ if (!window.hasNativeWebXRImplementation && !window.hasNativeWebVRImplementation
 
 var utils = require('./utils/');
 var debug = utils.debug;
-
-if (utils.isIE11) {
-  // Polyfill `CustomEvent`.
-  require('custom-event-polyfill');
-  // Polyfill String.startsWith.
-  require('../vendor/starts-with-polyfill');
-}
 
 var error = debug('A-Frame:error');
 var warn = debug('A-Frame:warn');
@@ -72,8 +62,6 @@ var systems = require('./core/system').systems;
 // Exports THREE to window so three.js can be used without alteration.
 var THREE = window.THREE = require('./lib/three');
 
-var pkg = require('../package');
-
 require('./components/index'); // Register standard components.
 require('./geometries/index'); // Register standard geometries.
 require('./shaders/index'); // Register standard shaders.
@@ -91,7 +79,6 @@ require('./extras/primitives/');
 
 console.log('A-Frame Version: https://github.com/MozillaReality/aframe');
 console.log('three Version: https://github.com/MozillaReality/three.js');
-console.log('WebVR Polyfill Version:', pkg.dependencies['webvr-polyfill']);
 
 module.exports = window.AFRAME = {
   AComponent: require('./core/component').Component,
@@ -117,5 +104,5 @@ module.exports = window.AFRAME = {
   systems: systems,
   THREE: THREE,
   utils: utils,
-  version: pkg.version
+  version: 'hubs/master'
 };
