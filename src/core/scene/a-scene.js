@@ -11,6 +11,7 @@ var utils = require('../../utils/');
 var AEntity = require('../a-entity');
 var ANode = require('../a-node');
 var initPostMessageAPI = require('./postMessage');
+var shaders = require('../shader').shaders;
 
 var bind = utils.bind;
 var isIOS = utils.device.isIOS();
@@ -580,6 +581,77 @@ module.exports.AScene = registerElement('a-scene', {
 
           if (rendererAttr.alpha) {
             rendererConfig.alpha = rendererAttr.alpha === 'true';
+          }
+
+          if (rendererAttr.webgl2 && rendererAttr.webgl2 === 'true') {
+            const context = this.canvas.getContext('webgl2', {
+              alpha: rendererConfig.alpha,
+              depth: true,
+              stencil: true,
+              antialias: rendererConfig.antialias,
+              premultipliedAlpha: true,
+              preserveDrawingBuffer: false,
+              powerPreference: 'default'
+            });
+
+            if (context) {
+              console.log('Using WebGL 2.0 context.');
+              rendererConfig.context = context;
+
+              var versionRegex = /^\s*#version\s+300\s+es\s*\n/;
+
+              for (var shaderName in shaders) {
+                var shader = shaders[shaderName];
+
+                var shaderProto = shader.Shader.prototype;
+
+                if (!shaderProto.raw) {
+                  continue;
+                }
+
+                var vertexShader = shaderProto.vertexShader;
+                var fragmentShader = shaderProto.fragmentShader;
+
+                var isGLSL3ShaderMaterial = false;
+
+                if (vertexShader.match(versionRegex) !== null && fragmentShader.match(versionRegex) !== null) {
+                  isGLSL3ShaderMaterial = true;
+
+                  vertexShader = vertexShader.replace(versionRegex, '');
+                  fragmentShader = fragmentShader.replace(versionRegex, '');
+                }
+
+                // GLSL 3.0 conversion
+                const prefixVertex = [
+                  '#version 300 es\n',
+                  '#define attribute in',
+                  '#define varying out',
+                  '#define texture2D texture'
+                ].join('\n') + '\n';
+
+                const prefixFragment = [
+                  '#version 300 es\n',
+                  '#define varying in',
+                  isGLSL3ShaderMaterial ? '' : 'out highp vec4 pc_fragColor;',
+                  isGLSL3ShaderMaterial ? '' : '#define gl_FragColor pc_fragColor',
+                  '#define gl_FragDepthEXT gl_FragDepth',
+                  '#define texture2D texture',
+                  '#define textureCube texture',
+                  '#define texture2DProj textureProj',
+                  '#define texture2DLodEXT textureLod',
+                  '#define texture2DProjLodEXT textureProjLod',
+                  '#define textureCubeLodEXT textureLod',
+                  '#define texture2DGradEXT textureGrad',
+                  '#define texture2DProjGradEXT textureProjGrad',
+                  '#define textureCubeGradEXT textureGrad'
+                ].join('\n') + '\n';
+
+                shaderProto.vertexShader = prefixVertex + vertexShader;
+                shaderProto.fragmentShader = prefixFragment + fragmentShader;
+              }
+            } else {
+              console.log('No WebGL 2.0 context available. Falling back to WebGL 1.0');
+            }
           }
 
           this.maxCanvasSize = {
