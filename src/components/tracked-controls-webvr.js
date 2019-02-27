@@ -96,8 +96,7 @@ module.exports.Component = registerComponent('tracked-controls-webvr', {
       this.system.controllers,
       data.id,
       data.idPrefix,
-      data.hand,
-      data.controller
+      data.hand
     );
 
     this.controller = controller;
