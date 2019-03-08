@@ -295,7 +295,7 @@ module.exports.AScene = registerElement('a-scene', {
             }
             return vrDisplay.requestPresent([{
               source: this.canvas,
-              attributes: {highRefreshRate: this.highRefreshRate}
+              attributes: {highRefreshRate: this.highRefreshRate, multiview: vrManager.multiview}
             }]).then(enterVRSuccess, enterVRFailure);
           }
           return Promise.resolve();
@@ -563,9 +563,12 @@ module.exports.AScene = registerElement('a-scene', {
 
         this.maxCanvasSize = {height: 1920, width: 1920};
 
+        let enableMultiview = false;
         if (this.hasAttribute('renderer')) {
           rendererAttrString = this.getAttribute('renderer');
           rendererAttr = utils.styleParser.parse(rendererAttrString);
+
+          enableMultiview = rendererAttr.multiview === 'true';
 
           if (rendererAttr.precision) {
             rendererConfig.precision = rendererAttr.precision + 'p';
@@ -598,6 +601,12 @@ module.exports.AScene = registerElement('a-scene', {
               console.log('Using WebGL 2.0 context.');
               rendererConfig.context = context;
 
+              const multiviewSupported = (!!context.getExtension('WEBGL_multiview') || !!context.getExtension('OVR_multiview'));
+              if (enableMultiview && !multiviewSupported) {
+                console.warn('Multiview enabled but WEBGL/OVR_multiview extension browser support not available');
+                enableMultiview = false;
+              }
+
               var versionRegex = /^\s*#version\s+300\s+es\s*\n/;
 
               for (var shaderName in shaders) {
@@ -626,7 +635,8 @@ module.exports.AScene = registerElement('a-scene', {
                   '#version 300 es\n',
                   '#define attribute in',
                   '#define varying out',
-                  '#define texture2D texture'
+                  '#define texture2D texture',
+                  enableMultiview ? '#define AFRAME_enable_multiview' : ''
                 ].join('\n') + '\n';
 
                 const prefixFragment = [
@@ -650,7 +660,11 @@ module.exports.AScene = registerElement('a-scene', {
                 shaderProto.fragmentShader = prefixFragment + fragmentShader;
               }
             } else {
-              console.log('No WebGL 2.0 context available. Falling back to WebGL 1.0');
+              console.warn('No WebGL 2.0 context available. Falling back to WebGL 1.0');
+              if (enableMultiview) {
+                console.warn('Multiview enabled but requires a WebGL2 context');
+                enableMultiview = false;
+              }
             }
           }
 
@@ -667,6 +681,10 @@ module.exports.AScene = registerElement('a-scene', {
         renderer = this.renderer = new THREE.WebGLRenderer(rendererConfig);
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.sortObjects = false;
+        if (enableMultiview) {
+          console.log('Using Multiview.');
+          renderer.vr.multiview = true;
+        }
         if (this.camera) { renderer.vr.setPoseTarget(this.camera.el.object3D); }
         this.addEventListener('camera-set-active', function () {
           renderer.vr.setPoseTarget(self.camera.el.object3D);
