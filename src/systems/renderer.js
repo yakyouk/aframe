@@ -21,7 +21,8 @@ module.exports.System = registerSystem('renderer', {
     colorManagement: {default: false},
     gammaOutput: {default: false},
     alpha: { default: true },
-    webgl2: {default: false}
+    webgl2: {default: false},
+    multiview: {default: false}
   },
 
   init: function () {
