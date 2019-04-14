@@ -5,11 +5,14 @@
  * @param {...*} arguments - Arguments to pass through.
  */
 module.exports = function bind (fn, ctx/* , arg1, arg2 */) {
-  return (function (prependedArgs) {
+  // Disable optimization in favor of not allocating memory every frame.
+  return fn.bind(ctx);
+  
+  /*return (function (prependedArgs) {
     return function bound () {
       // Concat the bound function arguments with those passed to original bind
       var args = prependedArgs.concat(Array.prototype.slice.call(arguments, 0));
       return fn.apply(ctx, args);
     };
-  })(Array.prototype.slice.call(arguments, 2));
+  })(Array.prototype.slice.call(arguments, 2));*/
 };
