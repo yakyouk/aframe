@@ -4,9 +4,9 @@
  * @param {Object} ctx - What to bind as context.
  * @param {...*} arguments - Arguments to pass through.
  */
-module.exports = function bind (fn, ctx/* , arg1, arg2 */) {
+module.exports = function bind (fn, ctx) {
   // Disable optimization in favor of not allocating memory every frame.
-  return fn.bind(ctx);
+  return Function.bind.apply(fn, [ctx].concat(Array.prototype.slice.call(arguments, 2)));
   
   /*return (function (prependedArgs) {
     return function bound () {
