@@ -7,12 +7,13 @@
 module.exports = function bind (fn, ctx) {
   // Disable optimization in favor of not allocating memory every frame.
   return Function.bind.apply(fn, [ctx].concat(Array.prototype.slice.call(arguments, 2)));
-  
-  /*return (function (prependedArgs) {
+  /*
+    return (function (prependedArgs) {
     return function bound () {
       // Concat the bound function arguments with those passed to original bind
       var args = prependedArgs.concat(Array.prototype.slice.call(arguments, 0));
       return fn.apply(ctx, args);
     };
-  })(Array.prototype.slice.call(arguments, 2));*/
+  })(Array.prototype.slice.call(arguments, 2));
+  */
 };
