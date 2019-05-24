@@ -82,7 +82,7 @@
     "karma-mocha-reporter": "^2.1.0",
     "karma-sinon-chai": "1.2.4",
     "lolex": "^1.5.1",
-    "markserv": "github:sukima/markserv#feature/fix-broken-websoketio-link",
+    "markserv": "^1.17.2",
     "minifyify": "^7.3.3",
     "mocha": "^3.0.2",
     "mozilla-download": "^1.1.1",
