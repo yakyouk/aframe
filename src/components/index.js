@@ -17,7 +17,6 @@ require('./rotation');
 require('./scale');
 require('./shadow');
 require('./sound');
-require('./text');
 require('./visible');
 require('./wasd-controls');
 
