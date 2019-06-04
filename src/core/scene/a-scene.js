@@ -556,7 +556,8 @@ module.exports.AScene = registerElement('a-scene', {
           alpha: true,
           antialias: !isMobile,
           canvas: this.canvas,
-          logarithmicDepthBuffer: false
+          logarithmicDepthBuffer: false,
+          preuploadVideos: /Oculus/.test(navigator.userAgent)
         };
 
         this.maxCanvasSize = {height: 1920, width: 1920};
