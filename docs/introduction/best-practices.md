@@ -71,7 +71,9 @@ purpose of using A-Frame.
 [hardware]: ./vr-headsets-and-webvr-browsers.md
 [merge]: https://www.npmjs.com/package/aframe-geometry-merger-component
 [stats]: ../components/stats.md
+[pool]: ../components/pool.md
 [background]: ../components/background.md
+[pool]
 [geometrymerger]: https://www.npmjs.com/package/aframe-geometry-merger-component
 
 
@@ -113,10 +115,13 @@ an A-Frame scene:
 - Update `position`, `rotation`, `scale`, and `visible` using at the three.js
   level (`el.object3D.position`, `el.object3D.rotation`, `el.object3D.scale`,
   `el.object3D.visible`) to avoid overhead on `.setAttribute`.
-- When using the animation component, [animate values
-  directly][animationdirect] which will skip `.setAttribute` and animate JS
-  values directly. For example, instead of `material.opacity`, animate
-  `components.material.material.opacity`.
+- If you need to create, remove and re-create many entities of the same type,
+  use the **[pool component][pool]** to pre-generate and reuse entities. This
+  avoids the cost of creating entities on the fly and reduces garbage collection.
+- When using the animation component, [animate values directly][animation] 
+  which will skip `.setAttribute` and animate JS values directly. 
+  For example, instead of `material.opacity`, 
+  animate `components.material.material.opacity`.
 
 ### GPU Texture Preloading
 
@@ -247,7 +252,7 @@ performance code because they will be run 90 times per second.
 
 ## VR Design
 
-[oculus]: https://developer.oculus.com/documentation/intro-vr/latest/concepts/bp_intro/
+[oculus]: https://developer.oculus.com/design/latest/concepts/book-bp/
 
 Designing for VR is different than designing for flat experiences. As a new
 medium, there are new sets of best practices to follow, especially to maintain

@@ -22,17 +22,18 @@ module.exports.System = registerSystem('renderer', {
     gammaOutput: {default: false},
     alpha: { default: true },
     webgl2: {default: false},
-    multiview: {default: false}
+    multiview: {default: false},
+    foveationLevel: {default: 0}
   },
 
   init: function () {
     var data = this.data;
     var sceneEl = this.el;
+    // This is the rendering engine, such as THREE.js so copy over any persistent properties from the rendering system.
     var renderer = sceneEl.renderer;
 
     renderer.sortObjects = data.sortObjects;
     renderer.physicallyCorrectLights = data.physicallyCorrectLights;
-    sceneEl.highRefreshRate = data.highRefreshRate;
 
     if (data.colorManagement || data.gammaOutput) {
       renderer.gammaOutput = true;

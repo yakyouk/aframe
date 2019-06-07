@@ -2,13 +2,16 @@ var error = require('debug')('device:error');
 
 var vrDisplay;
 
-// It catches vrdisplayactivate early to ensure we can enter VR mode after the scene loads.
+// Catch vrdisplayactivate early to ensure we can enter VR mode after the scene loads.
 window.addEventListener('vrdisplayactivate', function (evt) {
   var canvasEl;
   // WebXR takes priority if available.
   if (navigator.xr) { return; }
   canvasEl = document.createElement('canvas');
   vrDisplay = evt.display;
+  // We need to make sure the canvas has a WebGL context associated with it.
+  // Otherwise, the requestPresent could be denied.
+  canvasEl.getContext('webgl', {});
   // Request present immediately. a-scene will be allowed to enter VR without user gesture.
   vrDisplay.requestPresent([{source: canvasEl}]).then(function () {}, function () {});
 });
@@ -88,7 +91,7 @@ module.exports.isIOS = isIOS;
  *  Detect browsers in Stand-Alone headsets
  */
 function isMobileVR () {
-  return /(OculusBrowser)|(SamsungBrowser)|(Mobile VR)/i.test(window.navigator.userAgent);
+  return /(OculusBrowser)|(Mobile VR)/i.test(window.navigator.userAgent);
 }
 module.exports.isMobileVR = isMobileVR;
 
