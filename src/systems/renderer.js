@@ -22,7 +22,8 @@ module.exports.System = registerSystem('renderer', {
     gammaOutput: {default: false},
     alpha: { default: true },
     webgl2: {default: false},
-    multiview: {default: false}
+    multiview: {default: false},
+    forceWebVR: {default: false}
   },
 
   init: function () {

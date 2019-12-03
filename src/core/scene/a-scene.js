@@ -263,8 +263,9 @@ module.exports.AScene = registerElement('a-scene', {
           vrDisplay = utils.device.getVRDisplay();
           vrManager.enabled = true;
           vrManager.setDevice(vrDisplay);
+          var rendererSystem = this.getAttribute('renderer');
 
-          if (this.hasWebXR) {
+          if (this.hasWebXR && !rendererSystem.forceWebVR) {
             // XR API.
             if (this.xrSession) {
               this.xrSession.removeEventListener('end', this.exitVRBound);
@@ -282,7 +283,6 @@ module.exports.AScene = registerElement('a-scene', {
               enterVRSuccess();
             });
           } else {
-            var rendererSystem = this.getAttribute('renderer');
             var presentationAttributes = {
               highRefreshRate: rendererSystem.highRefreshRate,
               foveationLevel: rendererSystem.foveationLevel,
@@ -352,7 +352,9 @@ module.exports.AScene = registerElement('a-scene', {
         if (this.checkHeadsetConnected() || this.isMobile) {
           vrManager.enabled = false;
           vrDisplay = utils.device.getVRDisplay();
-          if (this.hasWebXR) {
+          var rendererSystem = this.getAttribute('renderer');
+
+          if (this.hasWebXR && !rendererSystem.forceWebVR) {
             this.xrSession.removeEventListener('end', this.exitVRBound);
             this.xrSession.end();
             vrManager.setSession(null);
@@ -665,6 +667,10 @@ module.exports.AScene = registerElement('a-scene', {
                 enableMultiview = false;
               }
             }
+          }
+
+          if (rendererAttr.forceWebVR) {
+            rendererConfig.forceWebVR = rendererAttr.forceWebVR === 'true';
           }
 
           this.maxCanvasSize = {
