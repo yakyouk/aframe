@@ -248,9 +248,9 @@ module.exports.System = registerSystem('camera', {
     this.originalRender.call(sceneEl.renderer, scene, camera);
     if (!this.spectatorCameraEl || sceneEl.isMobile || !isVREnabled) { return; }
     spectatorCamera = this.spectatorCameraEl.components.camera.camera;
-    sceneEl.renderer.vr.enabled = false;
+    sceneEl.renderer.xr.enabled = false;
     this.originalRender.call(sceneEl.renderer, scene, spectatorCamera);
-    sceneEl.renderer.vr.enabled = isVREnabled;
+    sceneEl.renderer.xr.enabled = isVREnabled;
   }
 });
 

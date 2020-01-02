@@ -27,7 +27,6 @@ var EVENTS = {};
 EVENTS[ANIMATIONS.fist] = 'grip';
 EVENTS[ANIMATIONS.thumbUp] = 'pistol';
 EVENTS[ANIMATIONS.point] = 'pointing';
-EVENTS[ANIMATIONS.thumb] = 'thumb';
 
 /**
  * Hand controls component that abstracts 6DoF controls:
@@ -78,6 +77,8 @@ module.exports.Component = registerComponent('hand-controls', {
     this.onBorYTouchEnd = function () { self.handleButton('BorY', 'touchend'); };
     this.onSurfaceTouchStart = function () { self.handleButton('surface', 'touchstart'); };
     this.onSurfaceTouchEnd = function () { self.handleButton('surface', 'touchend'); };
+    this.onControllerConnected = this.onControllerConnected.bind(this);
+    this.onControllerDisconnected = this.onControllerDisconnected.bind(this);
 
     el.addEventListener('controllerconnected', this.onControllerConnected);
     el.addEventListener('controllerdisconnected', this.onControllerDisconnected);
@@ -100,6 +101,14 @@ module.exports.Component = registerComponent('hand-controls', {
     if (!mesh || !mesh.mixer) { return; }
 
     mesh.mixer.update(delta / 1000);
+  },
+
+  onControllerConnected: function () {
+    this.el.object3D.visible = true;
+  },
+
+  onControllerDisconnected: function () {
+    this.el.object3D.visible = false;
   },
 
   addEventListeners: function () {
@@ -248,20 +257,21 @@ module.exports.Component = registerComponent('hand-controls', {
     var isVive = isViveController(this.el.components['tracked-controls']);
 
     // Works well with Oculus Touch and Windows Motion Controls, but Vive needs tweaks.
-    if (isGripActive) {
-      if (isVive) {
+    if (isVive) {
+      if (isGripActive || isTriggerActive) {
         gesture = ANIMATIONS.fist;
-      } else
+      } else if (isTrackpadActive) {
+        gesture = ANIMATIONS.point;
+      }
+    } else {
+      if (isGripActive) {
         if (isSurfaceActive || isABXYActive || isTrackpadActive) {
           gesture = isTriggerActive ? ANIMATIONS.fist : ANIMATIONS.point;
         } else {
           gesture = isTriggerActive ? ANIMATIONS.thumbUp : ANIMATIONS.pointThumb;
         }
-    } else {
-      if (isTriggerActive) {
-        gesture = !isVive ? ANIMATIONS.hold : ANIMATIONS.fist;
-      } else if (isVive && isTrackpadActive) {
-        gesture = ANIMATIONS.point;
+      } else if (isTriggerActive) {
+        gesture = ANIMATIONS.hold;
       }
     }
 
@@ -377,7 +387,7 @@ function getGestureEventName (gesture, active) {
   if (eventName === 'grip') {
     return eventName + (active ? 'close' : 'open');
   }
-  if (eventName === 'point' || eventName === 'thumb') {
+  if (eventName === 'point') {
     return eventName + (active ? 'up' : 'down');
   }
   if (eventName === 'pointing' || eventName === 'pistol') {
@@ -387,7 +397,10 @@ function getGestureEventName (gesture, active) {
 }
 
 function isViveController (trackedControls) {
-  var controllerId = trackedControls && trackedControls.controller &&
-                     trackedControls.controller.id;
-  return controllerId && controllerId.indexOf('OpenVR ') === 0;
+  var controller = trackedControls && trackedControls.controller;
+  var isVive = controller && (controller.id && controller.id.indexOf('OpenVR ') === 0 ||
+    (controller.profiles &&
+     controller.profiles[0] &&
+     controller.profiles[0] === 'htc-vive-controller-mv'));
+  return isVive;
 }

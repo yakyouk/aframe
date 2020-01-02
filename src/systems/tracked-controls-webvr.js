@@ -1,5 +1,6 @@
 var registerSystem = require('../core/system').registerSystem;
 var utils = require('../utils');
+var isWebXRAvailable = utils.device.isWebXRAvailable;
 
 /**
  * Tracked controls system.
@@ -10,9 +11,13 @@ module.exports.System = registerSystem('tracked-controls-webvr', {
     var self = this;
 
     this.controllers = [];
+    this.isChrome = navigator.userAgent.indexOf('Chrome') !== -1;
 
     this.updateControllerList();
     this.throttledUpdateControllerList = utils.throttle(this.updateControllerList, 500, this);
+
+    // Don't use WebVR if WebXR is available?
+    if (isWebXRAvailable) { return; }
 
     if (!navigator.getVRDisplays) { return; }
 
@@ -24,11 +29,12 @@ module.exports.System = registerSystem('tracked-controls-webvr', {
   },
 
   tick: function () {
-    if (navigator.userAgent.indexOf('Chrome') !== -1) {
-      // Call getGamepads for Chrome for it to update. Not sure if needed in future.
-      navigator.getGamepads && navigator.getGamepads();
+    if (this.isChrome) {
+      // Retrieve new controller handlers with updated state (pose, buttons...)
+      this.updateControllerList();
+    } else {
+      this.throttledUpdateControllerList();
     }
-    this.throttledUpdateControllerList();
   },
 
   /**
