@@ -262,7 +262,7 @@ module.exports.AScene = registerElement('a-scene', {
       value: function (useAR) {
         var self = this;
         var vrDisplay;
-        var vrManager = self.renderer.xr;
+        var vrManager = self.renderer.vr;
 
         // Don't enter VR if already in VR.
         if (this.is('vr-mode')) { return Promise.resolve('Already in VR.'); }
@@ -368,7 +368,7 @@ module.exports.AScene = registerElement('a-scene', {
       value: function () {
         var self = this;
         var vrDisplay;
-        var vrManager = this.renderer.xr;
+        var vrManager = this.renderer.vr;
 
         // Don't exit VR if not in VR.
         if (!this.is('vr-mode')) { return Promise.resolve('Not in VR.'); }
@@ -548,8 +548,8 @@ module.exports.AScene = registerElement('a-scene', {
         var isVRPresenting;
         var size;
 
-        var isPresenting = this.renderer.xr.isPresenting();
-        isVRPresenting = this.renderer.xr.enabled && isPresenting;
+        var isPresenting = this.renderer.vr.isPresenting();
+        isVRPresenting = this.renderer.vr.enabled && isPresenting;
 
         // Do not update renderer, if a camera or a canvas have not been injected.
         // In VR mode, three handles canvas resize based on the dimensions returned by
@@ -711,7 +711,7 @@ module.exports.AScene = registerElement('a-scene', {
         renderer.sortObjects = false;
         if (this.camera) { renderer.vr.setPoseTarget(this.camera.el.object3D); }
         this.addEventListener('camera-set-active', function () {
-          renderer.xr.setPoseTarget(self.camera.el.object3D);
+          renderer.vr.setPoseTarget(self.camera.el.object3D);
         });
         loadingScreen.setup(this, getCanvasSize);
       },

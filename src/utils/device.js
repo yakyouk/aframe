@@ -43,7 +43,7 @@ if (isWebXRAvailable) {
       window.addEventListener('DOMContentLoaded', updateEnterInterfaces);
       return;
     }
-    if (sceneEl.hasLoaded) {
+    if (sceneEl.hasLoaded && sceneEl.components['vr-mode-ui']) {
       sceneEl.components['vr-mode-ui'].updateEnterInterfaces();
     } else {
       sceneEl.addEventListener('loaded', updateEnterInterfaces);
