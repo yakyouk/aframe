@@ -591,7 +591,7 @@ module.exports.AScene = registerElement('a-scene', {
 
         this.maxCanvasSize = {height: 1920, width: 1920};
 
-        let enableMultiview = false;
+        var enableMultiview = false;
         if (this.hasAttribute('renderer')) {
           rendererAttrString = this.getAttribute('renderer');
           rendererAttr = utils.styleParser.parse(rendererAttrString);
