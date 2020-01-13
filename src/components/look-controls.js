@@ -220,7 +220,7 @@ module.exports.Component = registerComponent('look-controls', {
         // With WebXR THREE applies headset pose to the object3D matrixWorld internally.
         // Reflect values back on position, rotation, scale for getAttribute to return the expected values.
         if (sceneEl.hasWebXR) {
-          pose = sceneEl.renderer.xr.getCameraPose();
+          pose = sceneEl.renderer.vr.getCameraPose();
           if (pose) {
             poseMatrix.elements = pose.transform.matrix;
             poseMatrix.decompose(object3D.position, object3D.rotation, object3D.scale);
