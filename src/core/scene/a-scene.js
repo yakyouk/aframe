@@ -586,7 +586,8 @@ module.exports.AScene = registerElement('a-scene', {
           antialias: !isMobile,
           canvas: this.canvas,
           logarithmicDepthBuffer: false,
-          preuploadVideos: /Oculus/.test(navigator.userAgent)
+          preuploadVideos: /Oculus/.test(navigator.userAgent),
+          forceWebVR: false
         };
 
         this.maxCanvasSize = {height: 1920, width: 1920};
@@ -612,6 +613,11 @@ module.exports.AScene = registerElement('a-scene', {
 
           if (rendererAttr.alpha) {
             rendererConfig.alpha = rendererAttr.alpha === 'true';
+          }
+
+          // HACK: We need force WebVR in Hubs with the window.forceWebVR flag for the time being, until Hubs implements WebXR support.
+          if (window.forceWebVR === true) {
+            rendererConfig.forceWebVR = window.forceWebVR;
           }
 
           if (rendererAttr.webgl2 && rendererAttr.webgl2 === 'true') {
