@@ -615,6 +615,7 @@ module.exports.AScene = registerElement('a-scene', {
             rendererConfig.alpha = rendererAttr.alpha === 'true';
           }
 
+          // HACK: We need force WebVR in Hubs with the window.forceWebVR flag for the time being, until Hubs implements WebXR support.
           if (window.forceWebVR === true) {
             rendererConfig.forceWebVR = window.forceWebVR;
           }

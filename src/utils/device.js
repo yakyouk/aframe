@@ -8,10 +8,8 @@ var supportsARSession = false;
  * Oculus Browser 7 doesn't support the WebXR gamepads module.
  * We fallback to WebVR API and will hotfix when implementation is complete.
  */
-/*
-HACK: Mozilla Hubs needs to force WebVR with the window.forceWebVR flag for the time being, until
-we implement WebXR support.
-*/
+
+// HACK: We need force WebVR in Hubs with the window.forceWebVR flag for the time being, until Hubs implements WebXR support.
 var isWebXRAvailable = module.exports.isWebXRAvailable = window.forceWebVR !== true && !window.debug && navigator.xr;
 
 // Catch vrdisplayactivate early to ensure we can enter VR mode after the scene loads.

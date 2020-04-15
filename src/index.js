@@ -2,6 +2,8 @@
 // Check before the polyfill runs.
 window.hasNativeWebVRImplementation = !!window.navigator.getVRDisplays ||
                                       !!window.navigator.getVRDevices;
+
+// HACK: We need force WebVR in Hubs with the window.forceWebVR flag for the time being, until Hubs implements WebXR support.
 window.hasNativeWebXRImplementation = window.forceWebVR !== true && !!navigator.xr;
 
 // If native WebXR or WebVR are defined WebVRPolyfill does not initialize.
