@@ -548,6 +548,10 @@ module.exports.AScene = registerElement('a-scene', {
         var isVRPresenting;
         var size;
 
+        if (this.hasAttribute('disable-resize')) {
+          return;
+        }
+
         var isPresenting = this.renderer.vr.isPresenting();
         isVRPresenting = this.renderer.vr.enabled && isPresenting;
 
