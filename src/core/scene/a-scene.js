@@ -579,10 +579,7 @@ module.exports.AScene = registerElement('a-scene', {
 
     setupRenderer: {
       value: function () {
-        var renderer;
-        var rendererAttr;
-        var rendererAttrString;
-        var rendererConfig;
+        this.maxCanvasSize = {height: 1920, width: 1920};
 
         rendererConfig = {
           alpha: true,
@@ -593,10 +590,26 @@ module.exports.AScene = registerElement('a-scene', {
           forceWebVR: false
         };
 
-        this.maxCanvasSize = {height: 1920, width: 1920};
-
         var enableMultiview = false;
+
+        var renderer;
+        var rendererAttr;
+        var rendererAttrString;
+        var rendererConfig;
+
         if (this.hasAttribute('renderer')) {
+          rendererAttrString = this.getAttribute('renderer');
+          rendererAttr = utils.styleParser.parse(rendererAttrString);
+
+          this.maxCanvasSize = {
+            width: rendererAttr.maxCanvasWidth
+              ? parseInt(rendererAttr.maxCanvasWidth)
+              : this.maxCanvasSize.width,
+            height: rendererAttr.maxCanvasHeight
+              ? parseInt(rendererAttr.maxCanvasHeight)
+              : this.maxCanvasSize.height
+          };
+
           rendererAttrString = this.getAttribute('renderer');
           rendererAttr = utils.styleParser.parse(rendererAttrString);
 
@@ -623,89 +636,6 @@ module.exports.AScene = registerElement('a-scene', {
             rendererConfig.forceWebVR = window.forceWebVR;
           }
 
-          if (rendererAttr.webgl2 && rendererAttr.webgl2 === 'true') {
-            const context = this.canvas.getContext('webgl2', {
-              alpha: rendererConfig.alpha,
-              depth: true,
-              stencil: true,
-              antialias: rendererConfig.antialias,
-              premultipliedAlpha: true,
-              preserveDrawingBuffer: false,
-              powerPreference: 'default',
-              xrCompatible: true
-            });
-
-            if (context) {
-              console.log('Using WebGL 2.0 context.');
-              rendererConfig.context = context;
-
-              const multiviewSupported = (!!context.getExtension('WEBGL_multiview') || !!context.getExtension('OVR_multiview'));
-              if (enableMultiview && !multiviewSupported) {
-                console.warn('Multiview enabled but WEBGL/OVR_multiview extension browser support not available');
-                enableMultiview = false;
-              }
-
-              var versionRegex = /^\s*#version\s+300\s+es\s*\n/;
-
-              for (var shaderName in shaders) {
-                var shader = shaders[shaderName];
-
-                var shaderProto = shader.Shader.prototype;
-
-                if (!shaderProto.raw) {
-                  continue;
-                }
-
-                var vertexShader = shaderProto.vertexShader;
-                var fragmentShader = shaderProto.fragmentShader;
-
-                var isGLSL3ShaderMaterial = false;
-
-                if (vertexShader.match(versionRegex) !== null && fragmentShader.match(versionRegex) !== null) {
-                  isGLSL3ShaderMaterial = true;
-
-                  vertexShader = vertexShader.replace(versionRegex, '');
-                  fragmentShader = fragmentShader.replace(versionRegex, '');
-                }
-
-                // GLSL 3.0 conversion
-                const prefixVertex = [
-                  '#version 300 es\n',
-                  '#define attribute in',
-                  '#define varying out',
-                  '#define texture2D texture',
-                  enableMultiview ? '#define AFRAME_enable_multiview' : ''
-                ].join('\n') + '\n';
-
-                const prefixFragment = [
-                  '#version 300 es\n',
-                  '#define varying in',
-                  isGLSL3ShaderMaterial ? '' : 'out highp vec4 pc_fragColor;',
-                  isGLSL3ShaderMaterial ? '' : '#define gl_FragColor pc_fragColor',
-                  '#define gl_FragDepthEXT gl_FragDepth',
-                  '#define texture2D texture',
-                  '#define textureCube texture',
-                  '#define texture2DProj textureProj',
-                  '#define texture2DLodEXT textureLod',
-                  '#define texture2DProjLodEXT textureProjLod',
-                  '#define textureCubeLodEXT textureLod',
-                  '#define texture2DGradEXT textureGrad',
-                  '#define texture2DProjGradEXT textureProjGrad',
-                  '#define textureCubeGradEXT textureGrad'
-                ].join('\n') + '\n';
-
-                shaderProto.vertexShader = prefixVertex + vertexShader;
-                shaderProto.fragmentShader = prefixFragment + fragmentShader;
-              }
-            } else {
-              console.warn('No WebGL 2.0 context available. Falling back to WebGL 1.0');
-              if (enableMultiview) {
-                console.warn('Multiview enabled but requires a WebGL2 context');
-                enableMultiview = false;
-              }
-            }
-          }
-
           this.maxCanvasSize = {
             width: rendererAttr.maxCanvasWidth
               ? parseInt(rendererAttr.maxCanvasWidth)
@@ -716,9 +646,100 @@ module.exports.AScene = registerElement('a-scene', {
           };
         }
 
-        renderer = this.renderer = new THREE.WebGLRenderer(rendererConfig);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.sortObjects = false;
+        if (window.AFRAME.RenderManager) {
+          this.renderManager = new window.AFRAME.RenderManager(this, rendererConfig, rendererAttr, shaders);
+          this.renderer = this.renderManager.renderer;
+        } else {
+          if (rendererAttr) {
+            if (rendererAttr.webgl2 && rendererAttr.webgl2 === 'true') {
+              const context = this.canvas.getContext('webgl2', {
+                alpha: rendererConfig.alpha,
+                depth: true,
+                stencil: true,
+                antialias: rendererConfig.antialias,
+                premultipliedAlpha: true,
+                preserveDrawingBuffer: false,
+                powerPreference: 'default',
+                xrCompatible: true
+              });
+
+              if (context) {
+                console.log('Using WebGL 2.0 context.');
+                rendererConfig.context = context;
+
+                const multiviewSupported = (!!context.getExtension('WEBGL_multiview') || !!context.getExtension('OVR_multiview'));
+                if (enableMultiview && !multiviewSupported) {
+                  console.warn('Multiview enabled but WEBGL/OVR_multiview extension browser support not available');
+                  enableMultiview = false;
+                }
+
+                var versionRegex = /^\s*#version\s+300\s+es\s*\n/;
+
+                for (var shaderName in shaders) {
+                  var shader = shaders[shaderName];
+
+                  var shaderProto = shader.Shader.prototype;
+
+                  if (!shaderProto.raw) {
+                    continue;
+                  }
+
+                  var vertexShader = shaderProto.vertexShader;
+                  var fragmentShader = shaderProto.fragmentShader;
+
+                  var isGLSL3ShaderMaterial = false;
+
+                  if (vertexShader.match(versionRegex) !== null && fragmentShader.match(versionRegex) !== null) {
+                    isGLSL3ShaderMaterial = true;
+
+                    vertexShader = vertexShader.replace(versionRegex, '');
+                    fragmentShader = fragmentShader.replace(versionRegex, '');
+                  }
+
+                  // GLSL 3.0 conversion
+                  const prefixVertex = [
+                    '#version 300 es\n',
+                    '#define attribute in',
+                    '#define varying out',
+                    '#define texture2D texture',
+                    enableMultiview ? '#define AFRAME_enable_multiview' : ''
+                  ].join('\n') + '\n';
+
+                  const prefixFragment = [
+                    '#version 300 es\n',
+                    '#define varying in',
+                    isGLSL3ShaderMaterial ? '' : 'out highp vec4 pc_fragColor;',
+                    isGLSL3ShaderMaterial ? '' : '#define gl_FragColor pc_fragColor',
+                    '#define gl_FragDepthEXT gl_FragDepth',
+                    '#define texture2D texture',
+                    '#define textureCube texture',
+                    '#define texture2DProj textureProj',
+                    '#define texture2DLodEXT textureLod',
+                    '#define texture2DProjLodEXT textureProjLod',
+                    '#define textureCubeLodEXT textureLod',
+                    '#define texture2DGradEXT textureGrad',
+                    '#define texture2DProjGradEXT textureProjGrad',
+                    '#define textureCubeGradEXT textureGrad'
+                  ].join('\n') + '\n';
+
+                  shaderProto.vertexShader = prefixVertex + vertexShader;
+                  shaderProto.fragmentShader = prefixFragment + fragmentShader;
+                }
+              } else {
+                console.warn('No WebGL 2.0 context available. Falling back to WebGL 1.0');
+                if (enableMultiview) {
+                  console.warn('Multiview enabled but requires a WebGL2 context');
+                  enableMultiview = false;
+                }
+              }
+            }
+          }
+
+          renderer = this.renderer = new THREE.WebGLRenderer(rendererConfig);
+          renderer.setPixelRatio(window.devicePixelRatio);
+          renderer.sortObjects = false;
+        }
+
         loadingScreen.setup(this, getCanvasSize);
       },
       writable: window.debug
@@ -853,7 +874,13 @@ module.exports.AScene = registerElement('a-scene', {
           savedBackground = this.object3D.background;
           this.object3D.background = null;
         }
-        renderer.render(this.object3D, this.camera);
+
+        if (this.renderManager) {
+          this.renderManager.render();
+        } else {
+          renderer.render(this.object3D, this.camera);
+        }
+
         if (savedBackground) {
           this.object3D.background = savedBackground;
         }
