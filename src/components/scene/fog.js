@@ -50,6 +50,7 @@ module.exports.Component = register('fog', {
     if (!fog) { return; }
     fog.far = 0;
     fog.near = 0.1;
+    fog.density = 0;
   }
 });
 
