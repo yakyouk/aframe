@@ -624,7 +624,7 @@ module.exports.AScene = registerElement('a-scene', {
           }
 
           if (rendererAttr.webgl2 && rendererAttr.webgl2 === 'true') {
-            const context config = {
+            const contextConfig = {
               alpha: rendererConfig.alpha,
               depth: true,
               stencil: true,
@@ -633,11 +633,11 @@ module.exports.AScene = registerElement('a-scene', {
               preserveDrawingBuffer: false,
               powerPreference: 'default'
             };
-            
-            if (!!navigator.xr) {
+
+            if (navigator.xr) {
               contextConfig.xrCompatible = true;
             }
-            
+
             const context = this.canvas.getContext('webgl2', contextConfig);
 
             if (context) {
