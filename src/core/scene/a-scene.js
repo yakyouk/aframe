@@ -673,6 +673,21 @@ module.exports.AScene = registerElement('a-scene', {
                   fragmentShader = fragmentShader.replace(versionRegex, '');
                 }
 
+                // Remove derivative #extension directives because it isn't necessary in WebGL2 + GLSL3
+                // and it can cause problem in Safari 15.
+                // See https://github.com/MozillaReality/aframe/pull/32
+
+                if (fragmentShader.indexOf('GL_OES_standard_derivatives') >= 0) {
+                  // Hardcoded chunk may not be flexible.
+                  // But we rarely update our A-Frame shader codes. I hope it is acceptable.
+                  const derivativesExtensionLines = [
+                    '#ifdef GL_OES_standard_derivatives',
+                    '#extension GL_OES_standard_derivatives: enable',
+                    '#endif'
+                  ].join('\n') + '\n';
+                  fragmentShader = fragmentShader.replace(derivativesExtensionLines, '');
+                }
+
                 // GLSL 3.0 conversion
                 const prefixVertex = [
                   '#version 300 es\n',
