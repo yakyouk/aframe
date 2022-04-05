@@ -9,7 +9,6 @@ var utils = require('../../utils/');
 // Require after.
 var AEntity = require('../a-entity');
 var ANode = require('../a-node');
-// var shaders = require('../shader').shaders;
 
 var bind = utils.bind;
 var isIOS = utils.device.isIOS();
@@ -51,7 +50,6 @@ module.exports.AScene = registerElement('a-scene', {
         };
         this.systems = {};
         this.systemNames = [];
-        this.time = this.delta = 0;
 
         this.behaviors = {tick: [], tock: []};
         this.hasLoaded = false;
@@ -304,8 +302,6 @@ module.exports.AScene = registerElement('a-scene', {
           if (!self.isMobile && !self.checkHeadsetConnected()) {
             requestFullscreen(self.canvas);
           }
-
-          // self.renderer.setAnimationLoop(self.render);
         }
 
         function enterVRFailure (err) {
@@ -367,7 +363,6 @@ module.exports.AScene = registerElement('a-scene', {
           }
           // Exiting VR in embedded mode, no longer need fullscreen styles.
           if (self.hasAttribute('embedded')) { self.removeFullScreenStyles(); }
-          // self.resize();
           if (self.isIOS) { utils.forceCanvasResizeSafariMobile(self.canvas); }
           self.renderer.setPixelRatio(window.devicePixelRatio);
           self.emit('exit-vr', {target: self});
@@ -500,176 +495,6 @@ module.exports.AScene = registerElement('a-scene', {
       }
     },
 
-    // setupRenderer: {
-    //   value: function () {
-    //     var renderer;
-    //     var rendererAttr;
-    //     var rendererAttrString;
-    //     var rendererConfig;
-
-    //     rendererConfig = {
-    //       alpha: true,
-    //       antialias: !isMobile,
-    //       canvas: this.canvas,
-    //       logarithmicDepthBuffer: false,
-    //       preuploadVideos: /Oculus/.test(navigator.userAgent),
-    //       forceWebVR: false
-    //     };
-
-    //     this.maxCanvasSize = {height: 1920, width: 1920};
-
-    //     var enableMultiview = false;
-    //     if (this.hasAttribute('renderer')) {
-    //       rendererAttrString = this.getAttribute('renderer');
-    //       rendererAttr = utils.styleParser.parse(rendererAttrString);
-
-    //       enableMultiview = rendererAttr.multiview === 'true';
-
-    //       if (rendererAttr.precision) {
-    //         rendererConfig.precision = rendererAttr.precision + 'p';
-    //       }
-
-    //       if (rendererAttr.antialias && rendererAttr.antialias !== 'auto') {
-    //         rendererConfig.antialias = rendererAttr.antialias === 'true';
-    //       }
-
-    //       if (rendererAttr.logarithmicDepthBuffer && rendererAttr.logarithmicDepthBuffer !== 'auto') {
-    //         rendererConfig.logarithmicDepthBuffer = rendererAttr.logarithmicDepthBuffer === 'true';
-    //       }
-
-    //       if (rendererAttr.alpha) {
-    //         rendererConfig.alpha = rendererAttr.alpha === 'true';
-    //       }
-
-    //       // HACK: We need force WebVR in Hubs with the window.forceWebVR flag for the time being, until Hubs implements WebXR support.
-    //       if (window.forceWebVR === true) {
-    //         rendererConfig.forceWebVR = window.forceWebVR;
-    //       }
-
-    //       if (rendererAttr.webgl2 && rendererAttr.webgl2 === 'true') {
-    //         const contextConfig = {
-    //           alpha: rendererConfig.alpha,
-    //           depth: true,
-    //           stencil: true,
-    //           antialias: rendererConfig.antialias,
-    //           premultipliedAlpha: true,
-    //           preserveDrawingBuffer: false,
-    //           powerPreference: 'default'
-    //         };
-
-    //         if (navigator.xr) {
-    //           contextConfig.xrCompatible = true;
-    //         }
-
-    //         console.log("contextConfig", contextConfig)
-    //         const context = this.canvas.getContext('webgl2', contextConfig);
-
-    //         if (context) {
-    //           console.log('Using WebGL 2.0 context.');
-    //           rendererConfig.context = context;
-
-    //           const multiviewSupported = (!!context.getExtension('WEBGL_multiview') || !!context.getExtension('OVR_multiview'));
-    //           if (enableMultiview && !multiviewSupported) {
-    //             console.warn('Multiview enabled but WEBGL/OVR_multiview extension browser support not available');
-    //             enableMultiview = false;
-    //           }
-
-    //           var versionRegex = /^\s*#version\s+300\s+es\s*\n/;
-
-    //           for (var shaderName in shaders) {
-    //             var shader = shaders[shaderName];
-
-    //             var shaderProto = shader.Shader.prototype;
-
-    //             if (!shaderProto.raw) {
-    //               continue;
-    //             }
-
-    //             var vertexShader = shaderProto.vertexShader;
-    //             var fragmentShader = shaderProto.fragmentShader;
-
-    //             var isGLSL3ShaderMaterial = false;
-
-    //             if (vertexShader.match(versionRegex) !== null && fragmentShader.match(versionRegex) !== null) {
-    //               isGLSL3ShaderMaterial = true;
-
-    //               vertexShader = vertexShader.replace(versionRegex, '');
-    //               fragmentShader = fragmentShader.replace(versionRegex, '');
-    //             }
-
-    //             // Remove derivative #extension directives because it isn't necessary in WebGL2 + GLSL3
-    //             // and it can cause problem in Safari 15.
-    //             // See https://github.com/MozillaReality/aframe/pull/32
-
-    //             if (fragmentShader.indexOf('GL_OES_standard_derivatives') >= 0) {
-    //               // Hardcoded chunk may not be flexible.
-    //               // But we rarely update our A-Frame shader codes. I hope it is acceptable.
-    //               const derivativesExtensionLines = [
-    //                 '#ifdef GL_OES_standard_derivatives',
-    //                 '#extension GL_OES_standard_derivatives: enable',
-    //                 '#endif'
-    //               ].join('\n') + '\n';
-    //               fragmentShader = fragmentShader.replace(derivativesExtensionLines, '');
-    //             }
-
-    //             // GLSL 3.0 conversion
-    //             const prefixVertex = [
-    //               '#version 300 es\n',
-    //               '#define attribute in',
-    //               '#define varying out',
-    //               '#define texture2D texture',
-    //               enableMultiview ? '#define AFRAME_enable_multiview' : ''
-    //             ].join('\n') + '\n';
-
-    //             const prefixFragment = [
-    //               '#version 300 es\n',
-    //               '#define varying in',
-    //               isGLSL3ShaderMaterial ? '' : 'out highp vec4 pc_fragColor;',
-    //               isGLSL3ShaderMaterial ? '' : '#define gl_FragColor pc_fragColor',
-    //               '#define gl_FragDepthEXT gl_FragDepth',
-    //               '#define texture2D texture',
-    //               '#define textureCube texture',
-    //               '#define texture2DProj textureProj',
-    //               '#define texture2DLodEXT textureLod',
-    //               '#define texture2DProjLodEXT textureProjLod',
-    //               '#define textureCubeLodEXT textureLod',
-    //               '#define texture2DGradEXT textureGrad',
-    //               '#define texture2DProjGradEXT textureProjGrad',
-    //               '#define textureCubeGradEXT textureGrad'
-    //             ].join('\n') + '\n';
-
-    //             shaderProto.vertexShader = prefixVertex + vertexShader;
-    //             shaderProto.fragmentShader = prefixFragment + fragmentShader;
-    //           }
-    //         } else {
-    //           console.warn('No WebGL 2.0 context available. Falling back to WebGL 1.0');
-    //           if (enableMultiview) {
-    //             console.warn('Multiview enabled but requires a WebGL2 context');
-    //             enableMultiview = false;
-    //           }
-    //         }
-    //       }
-
-    //       this.maxCanvasSize = {
-    //         width: rendererAttr.maxCanvasWidth
-    //           ? parseInt(rendererAttr.maxCanvasWidth)
-    //           : this.maxCanvasSize.width,
-    //         height: rendererAttr.maxCanvasHeight
-    //           ? parseInt(rendererAttr.maxCanvasHeight)
-    //           : this.maxCanvasSize.height
-    //       };
-    //     }
-
-    //     console.log("rendererConfig", rendererConfig)
-
-    //     renderer = this.renderer = new THREE.WebGLRenderer(rendererConfig);
-    //     renderer.setPixelRatio(window.devicePixelRatio);
-    //     renderer.sortObjects = false;
-    //     loadingScreen.setup(this, getCanvasSize);
-    //   },
-    //   writable: window.debug
-    // },
-
     /**
      * Handler attached to elements to help scene know when to kick off.
      * Scene waits for all entities to load.
@@ -685,28 +510,7 @@ module.exports.AScene = registerElement('a-scene', {
         }
 
         this.addEventListener('loaded', function () {
-          // var renderer = this.renderer;
-          // var vrDisplay;
-          // var vrManager = this.renderer.xr;
           AEntity.prototype.play.call(this);  // .play() *before* render.
-
-          // if (sceneEl.renderStarted) { return; }
-          // sceneEl.resize();
-
-          // Kick off render loop.
-          // if (sceneEl.renderer) {
-          //   if (window.performance) { window.performance.mark('render-started'); }
-          //   loadingScreen.remove();
-          //   vrDisplay = utils.device.getVRDisplay();
-          //   if (vrDisplay && vrDisplay.isPresenting) {
-          //     vrManager.setDevice(vrDisplay);
-          //     vrManager.enabled = true;
-          //     sceneEl.enterVR();
-          //   }
-          //   renderer.setAnimationLoop(this.render);
-          //   sceneEl.renderStarted = true;
-          //   sceneEl.emit('renderstart');
-          // }
         });
 
         // setTimeout to wait for all nodes to attach and run their callbacks.
@@ -774,38 +578,6 @@ module.exports.AScene = registerElement('a-scene', {
         }
       }
     }
-
-    /**
-     * The render loop.
-     *
-     * Updates animations.
-     * Updates behaviors.
-     * Renders with request animation frame.
-     */
-    // render: {
-    //   value: function (time, frame) {
-    //     var renderer = this.renderer;
-
-    //     this.frame = frame;
-    //     this.delta = this.clock.getDelta() * 1000;
-    //     this.time = this.clock.elapsedTime * 1000;
-
-    //     if (this.isPlaying) { this.tick(this.time, this.delta); }
-
-    //     var savedBackground = null;
-    //     if (this.is('ar-mode')) {
-    //       // In AR mode, don't render the default background. Hide it, then
-    //       // restore it again after rendering.
-    //       savedBackground = this.object3D.background;
-    //       this.object3D.background = null;
-    //     }
-    //     renderer.render(this.object3D, this.camera);
-    //     if (savedBackground) {
-    //       this.object3D.background = savedBackground;
-    //     }
-    //   },
-    //   writable: true
-    // }
   })
 });
 
