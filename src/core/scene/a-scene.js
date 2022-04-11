@@ -1,7 +1,6 @@
 /* global Promise, screen, CustomEvent */
 var initMetaTags = require('./metaTags').inject;
 var initWakelock = require('./wakelock');
-var loadingScreen = require('./loadingScreen');
 var re = require('../a-register-element');
 var scenes = require('./scenes');
 var systems = require('../system').systems;
@@ -10,8 +9,6 @@ var utils = require('../../utils/');
 // Require after.
 var AEntity = require('../a-entity');
 var ANode = require('../a-node');
-var initPostMessageAPI = require('./postMessage');
-var shaders = require('../shader').shaders;
 
 var bind = utils.bind;
 var isIOS = utils.device.isIOS();
@@ -39,7 +36,6 @@ module.exports.AScene = registerElement('a-scene', {
   prototype: Object.create(AEntity.prototype, {
     createdCallback: {
       value: function () {
-        this.clock = new THREE.Clock();
         this.isIOS = isIOS;
         this.isMobile = isMobile;
         this.hasWebXR = isWebXRAvailable;
@@ -51,10 +47,8 @@ module.exports.AScene = registerElement('a-scene', {
           // THREE may swap the camera used for the rendering if in VR, so we pass it to tock
           if (self.isPlaying) { self.tock(self.time, self.delta, camera); }
         };
-        this.render = bind(this.render, this);
         this.systems = {};
         this.systemNames = [];
-        this.time = this.delta = 0;
 
         this.behaviors = {tick: [], tock: []};
         this.hasLoaded = false;
@@ -78,14 +72,12 @@ module.exports.AScene = registerElement('a-scene', {
     attachedCallback: {
       value: function () {
         var self = this;
-        var embedded = this.hasAttribute('embedded');
-        // Renderer initialization
-        setupCanvas(this);
-        this.setupRenderer();
 
-        this.resize();
-        if (!embedded) { this.addFullScreenStyles(); }
-        initPostMessageAPI(this);
+        const { renderer, camera, audioListener } = window.APP.setupRenderer(this);
+        this.renderer = renderer;
+        this.camera = camera;
+        this.canvas = this.renderer.domElement;
+        this.audioListener = audioListener;
 
         initMetaTags(this);
         initWakelock(this);
@@ -118,40 +110,11 @@ module.exports.AScene = registerElement('a-scene', {
                                   this.pointerUnrestrictedBound);
         }
 
-        // Camera set up by camera system.
-        this.addEventListener('cameraready', function () {
-          self.attachedCallbackPostCamera();
-        });
-
         this.initSystems();
-      }
-    },
-
-    attachedCallbackPostCamera: {
-      value: function () {
-        var resize;
-        var self = this;
-
-        resize = bind(this.resize, this);
-        window.addEventListener('load', resize);
-        window.addEventListener('resize', function () {
-          // Workaround for a Webkit bug (https://bugs.webkit.org/show_bug.cgi?id=170595)
-          // where the window does not contain the correct viewport size
-          // after an orientation change. The window size is correct if the operation
-          // is postponed a few milliseconds.
-          // self.resize can be called directly once the bug above is fixed.
-          if (self.isIOS) {
-            setTimeout(resize, 100);
-          } else {
-            resize();
-          }
-        });
         this.play();
 
-        // Add to scene index.
         scenes.push(this);
-      },
-      writable: window.debug
+      }
     },
 
     /**
@@ -160,12 +123,7 @@ module.exports.AScene = registerElement('a-scene', {
     initSystems: {
       value: function () {
         var name;
-
-        // Initialize camera system first.
-        this.initSystem('camera');
-
         for (name in systems) {
-          if (name === 'camera') { continue; }
           this.initSystem(name);
         }
       }
@@ -343,9 +301,6 @@ module.exports.AScene = registerElement('a-scene', {
           if (!self.isMobile && !self.checkHeadsetConnected()) {
             requestFullscreen(self.canvas);
           }
-
-          self.renderer.setAnimationLoop(self.render);
-          self.resize();
         }
 
         function enterVRFailure (err) {
@@ -407,7 +362,6 @@ module.exports.AScene = registerElement('a-scene', {
           }
           // Exiting VR in embedded mode, no longer need fullscreen styles.
           if (self.hasAttribute('embedded')) { self.removeFullScreenStyles(); }
-          self.resize();
           if (self.isIOS) { utils.forceCanvasResizeSafariMobile(self.canvas); }
           self.renderer.setPixelRatio(window.devicePixelRatio);
           self.emit('exit-vr', {target: self});
@@ -540,210 +494,6 @@ module.exports.AScene = registerElement('a-scene', {
       }
     },
 
-    resize: {
-      value: function () {
-        var camera = this.camera;
-        var canvas = this.canvas;
-        var embedded;
-        var isVRPresenting;
-        var size;
-
-        if (this.hasAttribute('disable-resize')) {
-          return;
-        }
-
-        var isPresenting = this.renderer.xr.isPresenting;
-        isVRPresenting = this.renderer.xr.enabled && isPresenting;
-
-        // Do not update renderer, if a camera or a canvas have not been injected.
-        // In VR mode, three handles canvas resize based on the dimensions returned by
-        // the getEyeParameters function of the WebVR API. These dimensions are independent of
-        // the window size, therefore should not be overwritten with the window's width and
-        // height, // except when in fullscreen mode.
-        if (!camera || !canvas || (this.is('vr-mode') && (this.isMobile || isVRPresenting))) {
-          return;
-        }
-
-        // Update camera.
-        embedded = this.getAttribute('embedded') && !this.is('vr-mode');
-        size = getCanvasSize(canvas, embedded, this.maxCanvasSize, this.is('vr-mode'));
-        camera.aspect = size.width / size.height;
-        camera.updateProjectionMatrix();
-
-        // Notify renderer of size change.
-        this.renderer.setSize(size.width, size.height, false);
-        this.emit('rendererresize', null, false);
-      },
-      writable: true
-    },
-
-    setupRenderer: {
-      value: function () {
-        var renderer;
-        var rendererAttr;
-        var rendererAttrString;
-        var rendererConfig;
-
-        rendererConfig = {
-          alpha: true,
-          antialias: !isMobile,
-          canvas: this.canvas,
-          logarithmicDepthBuffer: false,
-          preuploadVideos: /Oculus/.test(navigator.userAgent),
-          forceWebVR: false
-        };
-
-        this.maxCanvasSize = {height: 1920, width: 1920};
-
-        var enableMultiview = false;
-        if (this.hasAttribute('renderer')) {
-          rendererAttrString = this.getAttribute('renderer');
-          rendererAttr = utils.styleParser.parse(rendererAttrString);
-
-          enableMultiview = rendererAttr.multiview === 'true';
-
-          if (rendererAttr.precision) {
-            rendererConfig.precision = rendererAttr.precision + 'p';
-          }
-
-          if (rendererAttr.antialias && rendererAttr.antialias !== 'auto') {
-            rendererConfig.antialias = rendererAttr.antialias === 'true';
-          }
-
-          if (rendererAttr.logarithmicDepthBuffer && rendererAttr.logarithmicDepthBuffer !== 'auto') {
-            rendererConfig.logarithmicDepthBuffer = rendererAttr.logarithmicDepthBuffer === 'true';
-          }
-
-          if (rendererAttr.alpha) {
-            rendererConfig.alpha = rendererAttr.alpha === 'true';
-          }
-
-          // HACK: We need force WebVR in Hubs with the window.forceWebVR flag for the time being, until Hubs implements WebXR support.
-          if (window.forceWebVR === true) {
-            rendererConfig.forceWebVR = window.forceWebVR;
-          }
-
-          if (rendererAttr.webgl2 && rendererAttr.webgl2 === 'true') {
-            const contextConfig = {
-              alpha: rendererConfig.alpha,
-              depth: true,
-              stencil: true,
-              antialias: rendererConfig.antialias,
-              premultipliedAlpha: true,
-              preserveDrawingBuffer: false,
-              powerPreference: 'default'
-            };
-
-            if (navigator.xr) {
-              contextConfig.xrCompatible = true;
-            }
-
-            const context = this.canvas.getContext('webgl2', contextConfig);
-
-            if (context) {
-              console.log('Using WebGL 2.0 context.');
-              rendererConfig.context = context;
-
-              const multiviewSupported = (!!context.getExtension('WEBGL_multiview') || !!context.getExtension('OVR_multiview'));
-              if (enableMultiview && !multiviewSupported) {
-                console.warn('Multiview enabled but WEBGL/OVR_multiview extension browser support not available');
-                enableMultiview = false;
-              }
-
-              var versionRegex = /^\s*#version\s+300\s+es\s*\n/;
-
-              for (var shaderName in shaders) {
-                var shader = shaders[shaderName];
-
-                var shaderProto = shader.Shader.prototype;
-
-                if (!shaderProto.raw) {
-                  continue;
-                }
-
-                var vertexShader = shaderProto.vertexShader;
-                var fragmentShader = shaderProto.fragmentShader;
-
-                var isGLSL3ShaderMaterial = false;
-
-                if (vertexShader.match(versionRegex) !== null && fragmentShader.match(versionRegex) !== null) {
-                  isGLSL3ShaderMaterial = true;
-
-                  vertexShader = vertexShader.replace(versionRegex, '');
-                  fragmentShader = fragmentShader.replace(versionRegex, '');
-                }
-
-                // Remove derivative #extension directives because it isn't necessary in WebGL2 + GLSL3
-                // and it can cause problem in Safari 15.
-                // See https://github.com/MozillaReality/aframe/pull/32
-
-                if (fragmentShader.indexOf('GL_OES_standard_derivatives') >= 0) {
-                  // Hardcoded chunk may not be flexible.
-                  // But we rarely update our A-Frame shader codes. I hope it is acceptable.
-                  const derivativesExtensionLines = [
-                    '#ifdef GL_OES_standard_derivatives',
-                    '#extension GL_OES_standard_derivatives: enable',
-                    '#endif'
-                  ].join('\n') + '\n';
-                  fragmentShader = fragmentShader.replace(derivativesExtensionLines, '');
-                }
-
-                // GLSL 3.0 conversion
-                const prefixVertex = [
-                  '#version 300 es\n',
-                  '#define attribute in',
-                  '#define varying out',
-                  '#define texture2D texture',
-                  enableMultiview ? '#define AFRAME_enable_multiview' : ''
-                ].join('\n') + '\n';
-
-                const prefixFragment = [
-                  '#version 300 es\n',
-                  '#define varying in',
-                  isGLSL3ShaderMaterial ? '' : 'out highp vec4 pc_fragColor;',
-                  isGLSL3ShaderMaterial ? '' : '#define gl_FragColor pc_fragColor',
-                  '#define gl_FragDepthEXT gl_FragDepth',
-                  '#define texture2D texture',
-                  '#define textureCube texture',
-                  '#define texture2DProj textureProj',
-                  '#define texture2DLodEXT textureLod',
-                  '#define texture2DProjLodEXT textureProjLod',
-                  '#define textureCubeLodEXT textureLod',
-                  '#define texture2DGradEXT textureGrad',
-                  '#define texture2DProjGradEXT textureProjGrad',
-                  '#define textureCubeGradEXT textureGrad'
-                ].join('\n') + '\n';
-
-                shaderProto.vertexShader = prefixVertex + vertexShader;
-                shaderProto.fragmentShader = prefixFragment + fragmentShader;
-              }
-            } else {
-              console.warn('No WebGL 2.0 context available. Falling back to WebGL 1.0');
-              if (enableMultiview) {
-                console.warn('Multiview enabled but requires a WebGL2 context');
-                enableMultiview = false;
-              }
-            }
-          }
-
-          this.maxCanvasSize = {
-            width: rendererAttr.maxCanvasWidth
-              ? parseInt(rendererAttr.maxCanvasWidth)
-              : this.maxCanvasSize.width,
-            height: rendererAttr.maxCanvasHeight
-              ? parseInt(rendererAttr.maxCanvasHeight)
-              : this.maxCanvasSize.height
-          };
-        }
-
-        renderer = this.renderer = new THREE.WebGLRenderer(rendererConfig);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.sortObjects = false;
-        loadingScreen.setup(this, getCanvasSize);
-      },
-      writable: window.debug
-    },
-
     /**
      * Handler attached to elements to help scene know when to kick off.
      * Scene waits for all entities to load.
@@ -751,7 +501,7 @@ module.exports.AScene = registerElement('a-scene', {
     play: {
       value: function () {
         var self = this;
-        var sceneEl = this;
+        // var sceneEl = this;
 
         if (this.renderStarted) {
           AEntity.prototype.play.call(this);
@@ -759,28 +509,7 @@ module.exports.AScene = registerElement('a-scene', {
         }
 
         this.addEventListener('loaded', function () {
-          var renderer = this.renderer;
-          var vrDisplay;
-          var vrManager = this.renderer.xr;
           AEntity.prototype.play.call(this);  // .play() *before* render.
-
-          if (sceneEl.renderStarted) { return; }
-          sceneEl.resize();
-
-          // Kick off render loop.
-          if (sceneEl.renderer) {
-            if (window.performance) { window.performance.mark('render-started'); }
-            loadingScreen.remove();
-            vrDisplay = utils.device.getVRDisplay();
-            if (vrDisplay && vrDisplay.isPresenting) {
-              vrManager.setDevice(vrDisplay);
-              vrManager.enabled = true;
-              sceneEl.enterVR();
-            }
-            renderer.setAnimationLoop(this.render);
-            sceneEl.renderStarted = true;
-            sceneEl.emit('renderstart');
-          }
         });
 
         // setTimeout to wait for all nodes to attach and run their callbacks.
@@ -847,100 +576,9 @@ module.exports.AScene = registerElement('a-scene', {
           systems[this.systemNames[i]].tock(time, timeDelta, camera);
         }
       }
-    },
-
-    /**
-     * The render loop.
-     *
-     * Updates animations.
-     * Updates behaviors.
-     * Renders with request animation frame.
-     */
-    render: {
-      value: function (time, frame) {
-        var renderer = this.renderer;
-
-        this.frame = frame;
-        this.delta = this.clock.getDelta() * 1000;
-        this.time = this.clock.elapsedTime * 1000;
-
-        if (this.isPlaying) { this.tick(this.time, this.delta); }
-
-        var savedBackground = null;
-        if (this.is('ar-mode')) {
-          // In AR mode, don't render the default background. Hide it, then
-          // restore it again after rendering.
-          savedBackground = this.object3D.background;
-          this.object3D.background = null;
-        }
-        renderer.render(this.object3D, this.camera);
-        if (savedBackground) {
-          this.object3D.background = savedBackground;
-        }
-      },
-      writable: true
     }
   })
 });
-
-/**
- * Return the canvas size where the scene will be rendered.
- * Will be always the window size except when the scene is embedded.
- * The parent size (less than max size) will be returned in that case.
- *
- * @param {object} canvasEl - the canvas element
- * @param {boolean} embedded - Is the scene embedded?
- * @param {object} max - Max size parameters
- * @param {boolean} isVR - If in VR
- */
-function getCanvasSize (canvasEl, embedded, maxSize, isVR) {
-  if (embedded) {
-    return {
-      height: canvasEl.parentElement.offsetHeight,
-      width: canvasEl.parentElement.offsetWidth
-    };
-  }
-  return getMaxSize(maxSize, isVR);
-}
-
-/**
- * Return the canvas size. Will be the window size unless that size is greater than the
- * maximum size (1920x1920 by default).  The constrained size will be returned in that case,
- * maintaining aspect ratio
- *
- * @param {object} maxSize - Max size parameters (width and height).
- * @param {boolean} isVR - If in VR.
- * @returns {object} Width and height.
- */
-function getMaxSize (maxSize, isVR) {
-  var aspectRatio;
-  var size;
-  var pixelRatio = window.devicePixelRatio;
-
-  size = {height: document.body.offsetHeight, width: document.body.offsetWidth};
-  if (!maxSize || isVR || (maxSize.width === -1 && maxSize.height === -1)) {
-    return size;
-  }
-
-  if (size.width * pixelRatio < maxSize.width &&
-    size.height * pixelRatio < maxSize.height) {
-    return size;
-  }
-
-  aspectRatio = size.width / size.height;
-
-  if ((size.width * pixelRatio) > maxSize.width && maxSize.width !== -1) {
-    size.width = Math.round(maxSize.width / pixelRatio);
-    size.height = Math.round(maxSize.width / aspectRatio / pixelRatio);
-  }
-
-  if ((size.height * pixelRatio) > maxSize.height && maxSize.height !== -1) {
-    size.height = Math.round(maxSize.height / pixelRatio);
-    size.width = Math.round(maxSize.height * aspectRatio / pixelRatio);
-  }
-
-  return size;
-}
 
 function requestFullscreen (canvas) {
   var requestFullscreen =

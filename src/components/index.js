@@ -1,12 +1,9 @@
 require('./animation');
-require('./camera');
 require('./cursor');
 require('./geometry');
 require('./generic-tracked-controller-controls');
-require('./gltf-model');
 require('./hand-controls');
 require('./laser-controls');
-require('./light');
 require('./line');
 require('./link');
 require('./look-controls');
