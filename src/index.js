@@ -3,23 +3,7 @@
 window.hasNativeWebVRImplementation = !!window.navigator.getVRDisplays ||
                                       !!window.navigator.getVRDevices;
 
-// HACK: We need force WebVR in Hubs with the window.forceWebVR flag for the time being, until Hubs implements WebXR support.
-window.hasNativeWebXRImplementation = window.forceWebVR !== true && !!navigator.xr;
-
-// If native WebXR or WebVR are defined WebVRPolyfill does not initialize.
-if (!window.hasNativeWebXRImplementation && !window.hasNativeWebVRImplementation) {
-  var isIOSOlderThan10 = require('./utils/isIOSOlderThan10');
-  // Workaround for iOS Safari canvas sizing issues in stereo (webvr-polyfill/issues/102).
-  // Only for iOS on versions older than 10.
-  var bufferScale = isIOSOlderThan10(window.navigator.userAgent) ? 1 / window.devicePixelRatio : 1;
-  var WebVRPolyfill = require('webvr-polyfill');
-  var polyfillConfig = {
-    BUFFER_SCALE: bufferScale,
-    CARDBOARD_UI_DISABLED: true,
-    ROTATE_INSTRUCTIONS_DISABLED: true
-  };
-  window.webvrpolyfill = new WebVRPolyfill(polyfillConfig);
-}
+window.hasNativeWebXRImplementation = !!navigator.xr;
 
 var utils = require('./utils/');
 var debug = utils.debug;
@@ -55,11 +39,7 @@ if (utils.device.isBrowserEnvironment) {
 var AScene = require('./core/scene/a-scene').AScene;
 var components = require('./core/component').components;
 var registerComponent = require('./core/component').registerComponent;
-var registerGeometry = require('./core/geometry').registerGeometry;
-var registerPrimitive = require('./extras/primitives/primitives').registerPrimitive;
-var registerShader = require('./core/shader').registerShader;
 var registerSystem = require('./core/system').registerSystem;
-var shaders = require('./core/shader').shaders;
 var systems = require('./core/system').systems;
 // Exports THREE to window so three.js can be used without alteration.
 var THREE = window.THREE = require('./lib/three');
@@ -67,19 +47,12 @@ var THREE = window.THREE = require('./lib/three');
 var pkg = require('../package');
 
 require('./components/index'); // Register standard components.
-require('./geometries/index'); // Register standard geometries.
-require('./shaders/index'); // Register standard shaders.
-require('./systems/index'); // Register standard systems.
+
 var ANode = require('./core/a-node');
 var AEntity = require('./core/a-entity'); // Depends on ANode and core components.
 
 require('./core/a-assets');
-require('./core/a-cubemap');
 require('./core/a-mixin');
-
-// Extras.
-require('./extras/components/');
-require('./extras/primitives/');
 
 console.log('A-Frame Version: https://github.com/MozillaReality/aframe');
 console.log('three Version: https://github.com/MozillaReality/three.js');
@@ -89,24 +62,14 @@ module.exports = window.AFRAME = {
   AComponent: require('./core/component').Component,
   AEntity: AEntity,
   ANode: ANode,
-  ANIME: require('super-animejs'),
   AScene: AScene,
   components: components,
   coreComponents: Object.keys(components),
-  geometries: require('./core/geometry').geometries,
   registerComponent: registerComponent,
   registerElement: require('./core/a-register-element').registerElement,
-  registerGeometry: registerGeometry,
-  registerPrimitive: registerPrimitive,
-  registerShader: registerShader,
   registerSystem: registerSystem,
-  primitives: {
-    getMeshMixin: require('./extras/primitives/getMeshMixin'),
-    primitives: require('./extras/primitives/primitives').primitives
-  },
   scenes: require('./core/scene/scenes'),
   schema: require('./core/schema'),
-  shaders: shaders,
   systems: systems,
   THREE: THREE,
   utils: utils,
