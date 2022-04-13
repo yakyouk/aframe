@@ -1,31 +1,44 @@
-require('./animation');
-require('./cursor');
-require('./geometry');
-require('./generic-tracked-controller-controls');
-require('./hand-controls');
-require('./laser-controls');
-require('./line');
-require('./link');
-require('./look-controls');
-require('./material');
-require('./obj-model');
+var registerComponent = require('../core/component').registerComponent;
+
+function stubComponent (name) {
+  registerComponent(name, {
+    init () {
+      console.warn(`The ${name} aframe component no longer exists.`);
+    }
+  });
+}
+
+// animation is re-implemented in hubs
+stubComponent('cursor');
+stubComponent('geometry');
+stubComponent('generic-tracked-controller-controls');
+stubComponent('hand-controls');
+stubComponent('laser-controls');
+stubComponent('line');
+stubComponent('link');
+stubComponent('look-controls');
+stubComponent('material');
+stubComponent('obj-model');
 require('./position');
-require('./raycaster');
+stubComponent('raycaster');
 require('./rotation');
 require('./scale');
 require('./shadow');
-require('./sound');
+stubComponent('sound');
 require('./visible');
-require('./wasd-controls');
+stubComponent('wasd-controls');
 
-require('./scene/background');
-require('./scene/debug');
-require('./scene/device-orientation-permission-ui');
-require('./scene/embedded');
-require('./scene/inspector');
-require('./scene/fog');
-require('./scene/keyboard-shortcuts');
-require('./scene/pool');
-require('./scene/screenshot');
-require('./scene/stats');
-require('./scene/vr-mode-ui');
+stubComponent('scene/background');
+stubComponent('scene/debug');
+stubComponent('scene/device-orientation-permission-ui');
+stubComponent('scene/embedded');
+stubComponent('scene/inspector');
+stubComponent('scene/fog');
+stubComponent('scene/keyboard-shortcuts');
+stubComponent('scene/pool');
+stubComponent('scene/screenshot');
+stubComponent('scene/stats');
+stubComponent('scene/vr-mode-ui');
+
+// creates rStats global
+require('../../vendor/rStats');

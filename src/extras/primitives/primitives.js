@@ -24,7 +24,7 @@ module.exports.registerPrimitive = function registerPrimitive (name, definition)
       defaultComponentsFromPrimitive: {
         value: definition.defaultComponents || definition.defaultAttributes || {}
       },
-      deprecated: {value: definition.deprecated || null},
+      deprecated: {value: 'all primitives are deprecated'},
       deprecatedMappings: {value: definition.deprecatedMappings || {}},
       mappings: {value: definition.mappings || {}},
 

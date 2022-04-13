@@ -18,7 +18,6 @@ module.exports.Component = registerComponent('shadow', {
   init: function () {
     this.onMeshChanged = bind(this.update, this);
     this.el.addEventListener('object3dset', this.onMeshChanged);
-    this.system.setShadowMapEnabled(true);
   },
 
   update: function () {
