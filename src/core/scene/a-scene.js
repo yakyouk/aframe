@@ -1,6 +1,4 @@
 /* global Promise, screen, CustomEvent */
-var initMetaTags = require('./metaTags').inject;
-var initWakelock = require('./wakelock');
 var re = require('../a-register-element');
 var scenes = require('./scenes');
 var systems = require('../system').systems;
@@ -78,9 +76,6 @@ module.exports.AScene = registerElement('a-scene', {
         this.camera = camera;
         this.canvas = this.renderer.domElement;
         this.audioListener = audioListener;
-
-        initMetaTags(this);
-        initWakelock(this);
 
         // Handler to exit VR (e.g., Oculus Browser back button).
         this.onVRPresentChangeBound = bind(this.onVRPresentChange, this);
