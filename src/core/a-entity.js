@@ -12,6 +12,23 @@ var MULTIPLE_COMPONENT_DELIMITER = '__';
 var OBJECT3D_COMPONENTS = ['position', 'rotation', 'scale', 'visible'];
 var ONCE = {once: true};
 
+const { addEntity, removeEntity, addComponent } = require("bitecs");
+
+function addObject3DComponent(world, eid, obj) {
+  addComponent(APP.world, world.nameToComponent["object3d"], eid);
+  world.eid2obj.set(eid, obj);
+  obj.eid = eid;
+  // obj.addEventListener("removed", function() {
+  //   console.log("Remvoing entity", eid, obj)
+  //   removeEntity(world, eid);
+  //   // TODO should probably happen in a system that looks for Object3DTag component removal
+  //   world.eid2obj.delete(eid);
+  //   obj.eid = null;
+  // });
+  return eid;
+}
+
+
 /**
  * Entity is a container object that components are plugged into to comprise everything in
  * the scene. In A-Frame, they inherently have position, rotation, and scale.
@@ -79,6 +96,11 @@ var proto = Object.create(ANode.prototype, {
         return;
       }
 
+      const eid = addEntity(APP.world);
+      this.eid = eid;
+      addComponent(APP.world, APP.world.nameToComponent.AEntity, eid);
+      addObject3DComponent(APP.world, eid, this.object3D);
+
       // Wait for asset management system to finish before loading.
       assetsEl = sceneEl.querySelector('a-assets');
       if (assetsEl && !assetsEl.hasLoaded) {
@@ -111,6 +133,12 @@ var proto = Object.create(ANode.prototype, {
 
       // Remove cyclic reference.
       this.object3D.el = null;
+
+      // console.log("REMOVE ENTITY", this.object3D.eid, this);
+      removeEntity(APP.world, this.object3D.eid);
+      APP.world.eid2obj.delete(this.object3D.eid);
+      delete this.object3D.eid;
+      delete this.eid;
     }
   },
 
